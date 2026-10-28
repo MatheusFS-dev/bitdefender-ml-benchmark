@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Environment v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "hardware": {
+      "type": "object"
+    },
+    "software": {
+      "type": "object"
+    },
+    "protection": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "hardware",
+    "software",
+    "protection"
+  ],
+  "additionalProperties": true
+}

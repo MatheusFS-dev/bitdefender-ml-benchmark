@@ -1,0 +1,5 @@
+[project]
+name = "bdbench-pytorch"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["torch>=2.5", "torchvision>=0.20"]

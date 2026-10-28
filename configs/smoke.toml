@@ -1,0 +1,10 @@
+[run]
+profile = "smoke"
+seed = 1234
+
+[devices]
+cpu = true
+gpu_uuids = []
+
+[storage]
+roots = []

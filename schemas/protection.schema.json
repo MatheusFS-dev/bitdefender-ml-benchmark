@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Protection v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "claimed_condition": {
+      "type": "string"
+    },
+    "observed_state": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "claimed_condition",
+    "observed_state"
+  ],
+  "additionalProperties": true
+}

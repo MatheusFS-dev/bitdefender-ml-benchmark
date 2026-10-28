@@ -1,0 +1,14 @@
+[run]
+profile = "extended"
+seed = 1234
+
+[devices]
+cpu = true
+gpu_uuids = []
+
+[storage]
+roots = []
+
+[diagnostics]
+perf = false
+framework_profile = false

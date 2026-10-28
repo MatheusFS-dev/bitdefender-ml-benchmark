@@ -1,0 +1,10 @@
+[run]
+profile = "complete"
+seed = 1234
+
+[devices]
+cpu = true
+gpu_uuids = []
+
+[storage]
+roots = []
