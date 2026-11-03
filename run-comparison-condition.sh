@@ -16,7 +16,16 @@ done
 [[ -n "$gpu_uuid" ]] || { echo 'RTX 4070 was not found.' >&2; exit 1; }
 status=unknown
 if [[ -x /opt/bitdefender-security-tools/bin/bduitool ]]; then
-  status=$(/opt/bitdefender-security-tools/bin/bduitool get ps 2>/dev/null | awk -F: 'tolower($1) ~ /antimalware status/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print tolower($2); exit}')
+  if status_output=$(/opt/bitdefender-security-tools/bin/bduitool get ps 2>&1); then
+    :
+  elif command -v sudo >/dev/null && status_output=$(sudo -n /opt/bitdefender-security-tools/bin/bduitool get ps 2>&1); then
+    :
+  else
+    echo 'Cannot read Bitdefender status. Run sudo -v, then rerun this script while the sudo credential is cached.' >&2
+    echo "bduitool: $status_output" >&2
+    exit 1
+  fi
+  status=$(printf '%s\n' "$status_output" | awk -F: 'tolower($1) ~ /antimalware status/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print tolower($2); exit}')
 fi
 if [[ "$condition" == protected && "$status" != on ]]; then
   echo 'Bitdefender on-access status is not reported as on. Check bduitool get ps and permissions.' >&2
