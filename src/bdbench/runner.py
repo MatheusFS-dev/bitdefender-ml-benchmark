@@ -11,6 +11,7 @@ import signal
 import threading
 import time
 import tempfile
+import sys
 import uuid
 
 from bdbench.protection import capture_protection, protection_changed
@@ -24,6 +25,19 @@ from bdbench.serialization import normalize_metrics, validate_record
 from bdbench.telemetry import sample_to_file, sample_interval, trial_gpu_energy, gpu_energy_for_device, trial_rapl_energy, energy_per_work, energy_work_unit, summarize_trial_telemetry
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def tensorflow_cuda_paths(python: Path) -> list[str]:
+    """Find CUDA libraries installed beside a TensorFlow virtual environment.
+
+    Args:
+        python: TensorFlow environment's Python executable path.
+
+    Returns:
+        Absolute library directories from installed NVIDIA wheel packages.
+    """
+    site_packages = python.parent.parent / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
+    return [str(path.resolve()) for path in sorted((site_packages / 'nvidia').glob('*/lib')) if path.is_dir()]
 
 
 def run_process(command: list[str], payload: str, environment: dict, timeout: float):
@@ -99,6 +113,10 @@ def run_worker(case: dict) -> dict:
     """
     python = (ROOT / '.venv' if case['framework'] in {'sklearn', 'filesystem'} else ROOT / 'environments' / case['framework'] / '.venv') / 'bin' / 'python'
     env = os.environ.copy()
+    if case['framework'] == 'tensorflow':
+        cuda_paths = tensorflow_cuda_paths(python)
+        if cuda_paths:
+            env['LD_LIBRARY_PATH'] = os.pathsep.join([*cuda_paths, *([env['LD_LIBRARY_PATH']] if env.get('LD_LIBRARY_PATH') else [])])
     selected = case.get('device_uuids', [case['device']])
     env['CUDA_VISIBLE_DEVICES'] = '' if case['device'] == 'cpu' else ','.join(selected)
     env['PYTHONPATH'] = str(ROOT / 'src')

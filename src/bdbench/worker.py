@@ -794,7 +794,7 @@ def train_tensorflow_checkpoint(case: dict) -> dict:
         with tempfile.TemporaryDirectory(prefix='checkpoint-', dir=owned) as tmp:
             prefix = str(Path(tmp) / 'model')
             start = time.perf_counter()
-            name = checkpoint.write(prefix)
+            name = checkpoint.save(prefix)
             if case['durable']:
                 for path in Path(tmp).iterdir():
                     with path.open('rb') as stream:
