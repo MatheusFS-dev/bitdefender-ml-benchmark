@@ -11,6 +11,6 @@ build/
 dist/
 
 # Benchmark outputs
+/benchmark-data/
 /prepared/
 /sessions/
-/reports/

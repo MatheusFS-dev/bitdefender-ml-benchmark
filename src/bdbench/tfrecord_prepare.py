@@ -26,6 +26,7 @@ def prepare(dataset: Path) -> None:
                 if index % 10000 == 0:
                     if writer:
                         writer.close()
+                        print(f'[prepare] TFRecord samples written: {index}/50000', flush=True)
                     writer = tf.io.TFRecordWriter(str(staging / f'{index // 10000:02d}.tfrecord'))
                 example = tf.train.Example(features=tf.train.Features(feature={'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[image.tobytes()])), 'label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label]))}))
                 writer.write(example.SerializeToString())
@@ -35,6 +36,7 @@ def prepare(dataset: Path) -> None:
                 writer.close()
         if count != 50000:
             raise ValueError('Unexpected TFRecord example count')
+        print(f'[prepare] TFRecord samples written: {count}/50000', flush=True)
         staging.rename(target)
 
 

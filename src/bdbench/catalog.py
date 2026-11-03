@@ -77,7 +77,7 @@ def build_cases(settings: dict) -> list[dict]:
                     cases.append(resnet)
             wiki = settings.get('datasets', {}).get('wikitext2')
             if wiki:
-                case = {'framework': framework, 'model': 'transformer_lm', 'device': device, 'batch_size': 16, 'steps': steps, 'warmup_steps': 5, 'repetitions': repetitions, 'seed': settings.get('seed', 1234), 'precision': 'fp32', 'dataset': 'wikitext2', 'dataset_path': wiki['path'], 'dataset_sha256': wiki['sha256']}
+                case = {'framework': framework, 'model': 'transformer_lm', 'device': device, 'batch_size': 16, 'steps': steps, 'warmup_steps': 5, 'repetitions': repetitions, 'seed': settings.get('seed', 1234), 'precision': 'fp32', 'dataset': 'wikitext2', 'dataset_variant': wiki.get('variant', 'word-v1'), 'dataset_path': wiki['path'], 'dataset_sha256': wiki['sha256']}
                 case['case_id'] = canonical_hash(case)[:16]
                 cases.append(case)
     if settings.get('cpu', True):

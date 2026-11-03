@@ -32,6 +32,20 @@ fi
 gpu_index=$((choice - 1))
 gpu_uuid=${gpu_uuids[$gpu_index]}
 gpu_name=${gpu_names[$gpu_index]}
+echo 'CIFAR-10 download sources:'
+echo '  1) University of Toronto (original host)'
+echo '  2) Hugging Face mirror'
+echo '  3) Zenodo mirror'
+if ! read -r -p 'Choose a dataset source by number: ' source_choice; then
+  echo 'Dataset source choice required.' >&2
+  exit 1
+fi
+case "$source_choice" in
+  1) cifar_source=toronto ;;
+  2) cifar_source=huggingface ;;
+  3) cifar_source=zenodo ;;
+  *) echo 'Invalid dataset source choice.' >&2; exit 1 ;;
+esac
 command -v uv >/dev/null || { echo 'Missing uv. Install uv before running this script.' >&2; exit 1; }
 status=unknown
 if [[ -x /opt/bitdefender-security-tools/bin/bduitool ]]; then
@@ -61,7 +75,7 @@ session=${BDBENCH_SESSION:-${machine}-${condition}-$(date -u +%Y%m%dT%H%M%SZ)}
 [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || { echo 'Invalid BDBENCH_SESSION' >&2; exit 1; }
 manifest="$project_dir/prepared/$session.json"
 [[ ! -e "$manifest" && ! -e "$project_dir/sessions/$session" ]] || { echo "Session already exists: $session" >&2; exit 1; }
-echo "[1/5] GPU selected: $gpu_name ($gpu_uuid); condition: $condition; session: $session"
+echo "[1/5] GPU selected: $gpu_name ($gpu_uuid); CIFAR-10 source: $cifar_source; condition: $condition; session: $session"
 echo '[2/5] Synchronizing controller dependencies.'
 uv sync --locked --project "$project_dir"
 echo '[3/5] Synchronizing PyTorch dependencies.'
@@ -69,7 +83,7 @@ uv sync --locked --project "$project_dir/environments/pytorch"
 echo '[4/5] Synchronizing TensorFlow dependencies.'
 uv sync --locked --project "$project_dir/environments/tensorflow"
 echo '[5/5] Preparing datasets and manifest, then running benchmark trials.'
-"$project_dir/bench.sh" prepare --no-calibrate --config "$project_dir/configs/standard.toml" --gpu "$gpu_uuid" --storage-root "$storage_root" --output "$manifest"
+"$project_dir/bench.sh" prepare --no-calibrate --config "$project_dir/configs/standard.toml" --gpu "$gpu_uuid" --storage-root "$storage_root" --cifar-source "$cifar_source" --output "$manifest"
 echo "[benchmark] Manifest ready: $manifest"
 "$project_dir/bench.sh" run --manifest "$manifest" --condition "$condition" --session "$session"
 echo "Results: $project_dir/sessions/$session"

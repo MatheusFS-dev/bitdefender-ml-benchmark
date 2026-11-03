@@ -12,7 +12,7 @@ Faça uma revisão de consistência de unidades, percentuais, sinais e referênc
 
 ## Coleta e comparação
 
-No PC com Bitdefender, execute `./run-with-bitdefender.sh`. No PC sem Bitdefender, execute `./run-without-bitdefender.sh`. Cada script lista as GPUs NVIDIA detectadas e pede que você escolha uma pelo número. Escolha GPUs de especificação equivalente nos dois PCs. O perfil `standard` usa trabalho fixo, três repetições e dados em `benchmark-data/`. Defina `BDBENCH_STORAGE_ROOT` antes de executar se precisar usar outro disco. A preparação pode baixar CIFAR-10 e WikiText-2, e a campanha pode ser longa.
+No PC com Bitdefender, execute `./run-with-bitdefender.sh`. No PC sem Bitdefender, execute `./run-without-bitdefender.sh`. Cada script lista as GPUs NVIDIA detectadas e pede que você escolha uma pelo número. Também pede a fonte do arquivo CIFAR-10: Universidade de Toronto, Hugging Face ou Zenodo. O arquivo baixado é validado pelo mesmo MD5; se um arquivo válido já existir, ele é reutilizado. Escolha GPUs de especificação equivalente nos dois PCs. O perfil `standard` usa trabalho fixo, três repetições e dados em `benchmark-data/`. Defina `BDBENCH_STORAGE_ROOT` antes de executar se precisar usar outro disco. A preparação pode baixar CIFAR-10 e WikiText-2 raw-v1, e a campanha pode ser longa. O relatório deve identificar explicitamente a variante raw-v1 do WikiText-2.
 
 Copie os diretórios inteiros `sessions/<nome>` para um PC e execute:
 

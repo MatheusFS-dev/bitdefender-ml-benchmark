@@ -4,6 +4,7 @@ import json
 import math
 import sys
 import time
+from bdbench.progress import emit_progress
 
 
 def matmul_flops(size: int, steps: int) -> int:
@@ -156,15 +157,20 @@ def train_torch(case: dict) -> dict:
     Returns:
         Trial metrics from the requested device.
     """
+    emit_progress('Importing PyTorch')
     import torch
+    emit_progress('PyTorch imported; selecting device and building model')
     from torch import nn
     if case.get('cpu_threads'):
         torch.set_num_threads(case['cpu_threads'])
     if case['model'] == 'model_checkpoint':
+        emit_progress('Preparing PyTorch model and optimizer checkpoint')
         return train_torch_checkpoint(case)
     if case['model'] == 'matmul':
+        emit_progress('Preparing PyTorch matrix operands and warmup')
         return train_torch_matmul(case)
     if case['model'] == 'transformer_lm':
+        emit_progress('Reading WikiText tokens and building PyTorch language model')
         return train_torch_language(case)
     torch.manual_seed(case['seed'])
     gpu = case['device'] != 'cpu'
@@ -189,10 +195,12 @@ def train_torch(case: dict) -> dict:
     else:
         raise ValueError('Unknown model')
     model = model.to(device)
+    emit_progress(f'Model {model_name} initialized on {device}')
     y = torch.randint(0, 10, (batch,), device=device)
     batches = None
     dataset_load_seconds = None
     if dataset_kind(case) in {'cifar10', 'cifar10_jpeg', 'cifar10_mmap', 'cifar10_shards'}:
+        emit_progress(f'Loading {case["dataset"]} input data')
         from torchvision.datasets import CIFAR10, ImageFolder
         from torchvision.transforms import ToTensor
         if case['dataset'] == 'cifar10_jpeg':
@@ -209,6 +217,7 @@ def train_torch(case: dict) -> dict:
             dataset, dataset_load_seconds = timed_call(lambda: CIFAR10(case['dataset_path'], train=True, download=False, transform=ToTensor()))
         loader = torch.utils.data.DataLoader(dataset, batch_size=batch, shuffle=False, drop_last=True, num_workers=case.get('input_workers', 0), pin_memory=case.get('pin_memory', False))
         batches = iter(loader)
+        emit_progress('Input data loader ready')
     optimizer = torch.optim.Adam(model.parameters(), lr=.001)
     loss_fn = nn.CrossEntropyLoss()
     mixed = case.get('precision') == 'mixed_float16'
@@ -229,8 +238,10 @@ def train_torch(case: dict) -> dict:
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+    emit_progress(f'Warming up {case["warmup_steps"]} steps')
     for _ in range(case['warmup_steps']):
         step()
+    emit_progress(f'Warmup complete; measuring {case["steps"]} training steps')
     if gpu:
         torch.cuda.synchronize()
         torch.cuda.reset_peak_memory_stats()
@@ -271,6 +282,7 @@ def train_torch(case: dict) -> dict:
         if gpu:
             torch.cuda.synchronize()
         elapsed = time.perf_counter() - start
+    emit_progress(f'Timed training complete in {elapsed:.2f} s; summarizing metrics')
     if profiler is not None:
         profiler.export_chrome_trace(str(Path(case['profile_output']) / 'torch-trace.json'))
     metrics = {'elapsed': {'value': elapsed, 'unit': 's'}, 'throughput': {'value': batch * case['steps'] / elapsed, 'unit': 'samples/s'}}
@@ -280,6 +292,7 @@ def train_torch(case: dict) -> dict:
         metrics['checkpoint_stall_time'] = {'value': sum(checkpoint_times), 'unit': 's'}
         metrics['checkpoint_count'] = {'value': len(checkpoint_times), 'unit': 'checkpoints'}
     if dataset_load_seconds is not None:
+        emit_progress('Running held-out validation')
         metrics['dataset_load_time'] = {'value': dataset_load_seconds, 'unit': 's'}
         from torchvision.datasets import CIFAR10
         from torchvision.transforms import ToTensor
@@ -313,16 +326,22 @@ def train_tensorflow(case: dict) -> dict:
     Returns:
         Trial metrics from the requested device.
     """
+    emit_progress('Importing TensorFlow')
     import tensorflow as tf
+    emit_progress('TensorFlow imported; selecting device and building model')
     if case.get('distributed'):
+        emit_progress('Preparing distributed TensorFlow workers')
         return train_tensorflow_distributed(case)
     if case.get('cpu_threads'):
         tf.config.threading.set_intra_op_parallelism_threads(case['cpu_threads'])
     if case['model'] == 'model_checkpoint':
+        emit_progress('Preparing TensorFlow model and optimizer checkpoint')
         return train_tensorflow_checkpoint(case)
     if case['model'] == 'matmul':
+        emit_progress('Preparing TensorFlow matrix operands and warmup')
         return train_tensorflow_matmul(case)
     if case['model'] == 'transformer_lm':
+        emit_progress('Reading WikiText tokens and building TensorFlow language model')
         return train_tensorflow_language(case)
     tf.random.set_seed(case['seed'])
     gpu = case['device'] != 'cpu'
@@ -349,9 +368,11 @@ def train_tensorflow(case: dict) -> dict:
         else:
             raise ValueError('Unknown model')
         y = tf.random.uniform([batch], maxval=10, dtype=tf.int32)
+        emit_progress(f'Model {case["model"]} initialized on {target}')
         batches = None
         dataset_load_seconds = None
         if dataset_kind(case) in {'cifar10', 'cifar10_jpeg', 'cifar10_mmap', 'cifar10_shards', 'cifar10_tfrecord'}:
+            emit_progress(f'Loading {case["dataset"]} input data')
             import pickle
             import numpy as np
             from pathlib import Path
@@ -390,6 +411,7 @@ def train_tensorflow(case: dict) -> dict:
                 dataset = dataset.with_options(options).prefetch(case['input_workers'])
             batches = iter(dataset)
             dataset_load_seconds = time.perf_counter() - load_start
+            emit_progress('Input data loader ready')
         optimizer = tf.keras.optimizers.Adam(.001)
         if mixed:
             optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
@@ -402,10 +424,12 @@ def train_tensorflow(case: dict) -> dict:
             gradients = tape.gradient(scaled_loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
             return loss
+        emit_progress(f'Warming up {case["warmup_steps"]} steps')
         for _ in range(case['warmup_steps']):
             inputs, targets = next(batches) if batches is not None else (x, y)
             loss = step(inputs, targets)
         loss.numpy()
+        emit_progress(f'Warmup complete; measuring {case["steps"]} training steps')
         from contextlib import ExitStack
         import tempfile
         from pathlib import Path
@@ -438,6 +462,7 @@ def train_tensorflow(case: dict) -> dict:
                     latencies.append(time.perf_counter() - step_start)
             loss.numpy()
             elapsed = time.perf_counter() - start
+    emit_progress(f'Timed training complete in {elapsed:.2f} s; summarizing metrics')
     metrics = {'elapsed': {'value': elapsed, 'unit': 's'}, 'throughput': {'value': batch * case['steps'] / elapsed, 'unit': 'samples/s'}}
     if latencies:
         metrics.update(latency_metrics(latencies))
@@ -445,6 +470,7 @@ def train_tensorflow(case: dict) -> dict:
         metrics['checkpoint_stall_time'] = {'value': sum(checkpoint_times), 'unit': 's'}
         metrics['checkpoint_count'] = {'value': len(checkpoint_times), 'unit': 'checkpoints'}
     if dataset_load_seconds is not None:
+        emit_progress('Running held-out validation')
         metrics['dataset_load_time'] = {'value': dataset_load_seconds, 'unit': 's'}
         import pickle
         from pathlib import Path
@@ -511,12 +537,14 @@ def train_torch_language(case: dict) -> dict:
         step(i)
     if gpu:
         torch.cuda.synchronize()
+    emit_progress(f'Warmup complete; measuring {case["steps"]} language-model steps')
     start = time.perf_counter()
     for i in range(case['steps']):
         loss = step(i + case['warmup_steps'])
     if gpu:
         torch.cuda.synchronize()
     elapsed = time.perf_counter() - start
+    emit_progress(f'Timed language-model training complete in {elapsed:.2f} s; validating')
     count = case['batch_size'] * 32 * case['steps']
     validation_tokens = json.loads((Path(case['dataset_path']) / 'valid.json').read_text())
     valid_x, valid_y = token_batch(validation_tokens, case['batch_size'], 32, 0)
@@ -564,11 +592,13 @@ def train_tensorflow_language(case: dict) -> dict:
         for i in range(case['warmup_steps']):
             loss = step(i)
         loss.numpy()
+        emit_progress(f'Warmup complete; measuring {case["steps"]} language-model steps')
         start = time.perf_counter()
         for i in range(case['steps']):
             loss = step(i + case['warmup_steps'])
         loss_value = float(loss.numpy())
         elapsed = time.perf_counter() - start
+        emit_progress(f'Timed language-model training complete in {elapsed:.2f} s; validating')
         validation_tokens = json.loads((Path(case['dataset_path']) / 'valid.json').read_text())
         valid_x, valid_y = token_batch(validation_tokens, case['batch_size'], 32, 0)
         valid_loss = float(loss_fn(tf.constant(valid_y), model(tf.constant(valid_x), training=False)).numpy())
@@ -597,12 +627,14 @@ def train_torch_matmul(case: dict) -> dict:
         result = x @ y
     if gpu:
         torch.cuda.synchronize()
+    emit_progress(f'Warmup complete; measuring {case["steps"]} matrix products')
     start = time.perf_counter()
     for _ in range(case['steps']):
         result = x @ y
     if gpu:
         torch.cuda.synchronize()
     elapsed = time.perf_counter() - start
+    emit_progress(f'Timed matrix products complete in {elapsed:.2f} s')
     work = matmul_flops(1024, case['steps'])
     return {'status': 'completed', 'metrics': {'elapsed': {'value': elapsed, 'unit': 's'}, 'throughput': {'value': work / elapsed / 1e9, 'unit': 'GFLOP/s'}}, 'work_completed': work}
 
@@ -627,11 +659,13 @@ def train_tensorflow_matmul(case: dict) -> dict:
         for _ in range(case['warmup_steps']):
             result = tf.matmul(x, y)
         result.numpy()
+        emit_progress(f'Warmup complete; measuring {case["steps"]} matrix products')
         start = time.perf_counter()
         for _ in range(case['steps']):
             result = tf.matmul(x, y)
         result.numpy()
         elapsed = time.perf_counter() - start
+        emit_progress(f'Timed matrix products complete in {elapsed:.2f} s')
     work = matmul_flops(1024, case['steps'])
     return {'status': 'completed', 'metrics': {'elapsed': {'value': elapsed, 'unit': 's'}, 'throughput': {'value': work / elapsed / 1e9, 'unit': 'GFLOP/s'}}, 'work_completed': work}
 
@@ -782,6 +816,7 @@ def train_sklearn(case: dict) -> dict:
     Returns:
         Fit, prediction and accuracy metrics.
     """
+    emit_progress('Importing scikit-learn and generating synthetic samples')
     from sklearn.datasets import make_classification
     from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
     from sklearn.linear_model import LogisticRegression
@@ -790,9 +825,11 @@ def train_sklearn(case: dict) -> dict:
     train_x, test_x, train_y, test_y = train_test_split(x, y, test_size=.2, random_state=case['seed'])
     models = {'logistic': lambda: LogisticRegression(max_iter=200, random_state=case['seed']), 'hist_gradient': lambda: HistGradientBoostingClassifier(random_state=case['seed']), 'forest': lambda: RandomForestClassifier(n_estimators=100, n_jobs=1, random_state=case['seed'])}
     model = models[case['model']]()
+    emit_progress(f'Fitting {case["model"]} on {len(train_y)} samples')
     start = time.perf_counter()
     model.fit(train_x, train_y)
     fit = time.perf_counter() - start
+    emit_progress(f'Fit complete in {fit:.2f} s; scoring held-out samples')
     start = time.perf_counter()
     score = model.score(test_x, test_y)
     predict = time.perf_counter() - start
@@ -812,12 +849,14 @@ def train_filesystem(case: dict) -> dict:
     from pathlib import Path
     import tempfile
     from bdbench.storage import claim_storage, check_budget, owned_bytes, check_total_budget
+    emit_progress(f'Checking storage budget for {case["model"]}')
     root = Path(case['storage_root'])
     owned = claim_storage(root)
     size = case['size_bytes']
     check_budget(root, owned_bytes(owned), size * 2)
     check_total_budget([Path(item) for item in case.get('storage_roots', [str(root)])], size * 2)
     with tempfile.TemporaryDirectory(prefix='trial-', dir=owned) as temporary:
+        emit_progress(f'Running {case["model"]} file operations in benchmark-owned directory')
         directory = Path(temporary)
         data = b'\x91' * min(size, 1048576)
         path = directory / 'data.bin'
@@ -891,6 +930,7 @@ def train_filesystem(case: dict) -> dict:
             unit = 'bytes/s'
         else:
             raise ValueError('Unknown filesystem workload')
+    emit_progress(f'File operations complete in {elapsed:.2f} s; temporary files removed')
     return {'status': 'completed', 'metrics': {'elapsed': {'value': elapsed, 'unit': 's'}, 'throughput': {'value': work / elapsed, 'unit': unit}}, 'work_completed': work}
 
 
@@ -906,19 +946,23 @@ def train_case(case: dict) -> dict:
     Raises:
         ValueError: If the framework is not supported.
     """
+    emit_progress(f'Dispatching {case["framework"]}/{case["model"]} on {case["device"]}')
     if case.get('diagnostic') == 'framework_profiler' and not case.get('profile_output'):
         raise ValueError('A session-owned profiler output directory is required')
     if case.get('dataset') == 'cifar10_tfrecord' and case['framework'] != 'tensorflow':
         raise ValueError('TFRecord case requires TensorFlow')
     if case['framework'] == 'pytorch':
-        return train_torch(case)
-    if case['framework'] == 'tensorflow':
-        return train_tensorflow(case)
-    if case['framework'] == 'sklearn':
-        return train_sklearn(case)
-    if case['framework'] == 'filesystem':
-        return train_filesystem(case)
-    raise ValueError('Unsupported framework')
+        result = train_torch(case)
+    elif case['framework'] == 'tensorflow':
+        result = train_tensorflow(case)
+    elif case['framework'] == 'sklearn':
+        result = train_sklearn(case)
+    elif case['framework'] == 'filesystem':
+        result = train_filesystem(case)
+    else:
+        raise ValueError('Unsupported framework')
+    emit_progress(f'Worker case complete: {result["status"]}')
+    return result
 
 
 if __name__ == '__main__':

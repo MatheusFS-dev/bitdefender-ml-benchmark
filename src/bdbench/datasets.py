@@ -1,8 +1,34 @@
 """Dataset integrity checks and safe archive extraction."""
 
 import hashlib
+import time
 from pathlib import Path
 import tarfile
+
+
+CIFAR10_SOURCES = {
+    'toronto': 'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz',
+    'huggingface': 'https://huggingface.co/datasets/MIT-OL-AI-D/cifar-10-python/resolve/c6e562a/cifar-10-python.tar.gz',
+    'zenodo': 'https://zenodo.org/records/10089977/files/cifar-10-python.tar.gz?download=1',
+}
+
+
+def cifar_source_url(source: str) -> str:
+    """Resolve a named CIFAR-10 archive source.
+
+    Args:
+        source: One of toronto, huggingface or zenodo.
+
+    Returns:
+        HTTPS URL for the original Python archive.
+
+    Raises:
+        ValueError: If the source name is unsupported.
+    """
+    try:
+        return CIFAR10_SOURCES[source]
+    except KeyError as exc:
+        raise ValueError(f'Unknown CIFAR-10 source: {source}') from exc
 
 
 def verify_sha256(path: Path, expected: str) -> bool:
@@ -83,12 +109,15 @@ def download_checked(url: str, destination: Path, expected_md5: str, fetch=None,
                 digest.update(block)
         return digest.hexdigest()
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.exists():
+    archive_present = destination.exists()
+    if archive_present:
+        print(f'[prepare] Checking existing archive: {destination.name}; selected source will not be used if its checksum matches', flush=True)
         if destination.stat().st_size > max_bytes:
             raise ValueError('Existing dataset archive exceeds the size limit')
         if checksum(destination, 'md5') != expected_md5:
             raise ValueError('Existing dataset checksum does not match')
     else:
+        print(f'[prepare] Downloading {destination.name} from {url}', flush=True)
         fd, name = tempfile.mkstemp(prefix='.download-', dir=destination.parent)
         os.close(fd)
         temporary = Path(name)
@@ -98,11 +127,30 @@ def download_checked(url: str, destination: Path, expected_md5: str, fetch=None,
             else:
                 with urllib.request.urlopen(url, timeout=60) as source, temporary.open('wb') as target:
                     written = 0
-                    while block := source.read(1048576):
+                    started = time.monotonic()
+                    last_update = started
+                    length = source.headers.get('Content-Length')
+                    expected = int(length) if length and length.isdigit() else 0
+                    def show_download_progress():
+                        elapsed = max(time.monotonic() - started, .001)
+                        speed = written / elapsed / 1048576
+                        if expected:
+                            fraction = min(100, 100 * written / expected)
+                            remaining = max(0, expected - written) / max(written / elapsed, .001)
+                            detail = f'{written / 1048576:.1f}/{expected / 1048576:.1f} MiB ({fraction:.0f}%), {speed:.1f} MiB/s, ETA {remaining / 60:.1f} min'
+                        else:
+                            detail = f'{written / 1048576:.1f} MiB, {speed:.1f} MiB/s; total size and ETA unavailable'
+                        print(f'[prepare] {destination.name}: {detail}', flush=True)
+                    while block := source.read(65536):
                         written += len(block)
                         if written > max_bytes:
                             raise ValueError('Downloaded dataset archive exceeds the size limit')
                         target.write(block)
+                        now = time.monotonic()
+                        if now - last_update >= 1:
+                            show_download_progress()
+                            last_update = now
+                    show_download_progress()
             if temporary.stat().st_size > max_bytes:
                 raise ValueError('Downloaded dataset archive exceeds the size limit')
             if checksum(temporary, 'md5') != expected_md5:
@@ -110,14 +158,16 @@ def download_checked(url: str, destination: Path, expected_md5: str, fetch=None,
             os.replace(temporary, destination)
         finally:
             temporary.unlink(missing_ok=True)
-    return {'url': url, 'md5': expected_md5, 'sha256': checksum(destination, 'sha256'), 'path': str(destination)}
+    print(f'[prepare] Computing SHA-256: {destination.name}', flush=True)
+    return {'url': None if archive_present else url, 'requested_url': url, 'archive_status': 'reused' if archive_present else 'downloaded', 'md5': expected_md5, 'sha256': checksum(destination, 'sha256'), 'path': str(destination)}
 
 
-def prepare_cifar10(root: Path) -> dict:
+def prepare_cifar10(root: Path, source: str = 'toronto') -> dict:
     """Prepare the published CIFAR-10 archive in an owned storage root.
 
     Args:
         root: Existing user-selected storage directory.
+        source: Named download source for a missing archive.
 
     Returns:
         Archive provenance and extracted dataset directory.
@@ -130,15 +180,20 @@ def prepare_cifar10(root: Path) -> dict:
     datasets = owned / 'datasets'
     datasets.mkdir(exist_ok=True)
     archive = datasets / 'cifar-10-python.tar.gz'
-    info = download_checked('https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz', archive, 'c58f30108f718f92721af3b95e74349a')
+    url = cifar_source_url(source)
+    info = download_checked(url, archive, 'c58f30108f718f92721af3b95e74349a')
     target = datasets / 'cifar10'
     if not target.exists():
+        print('[prepare] Extracting CIFAR-10 archive', flush=True)
         with tempfile.TemporaryDirectory(prefix='.extract-', dir=datasets) as tmp:
             extracted = Path(tmp) / 'data'
             extract_tar(archive, extracted)
             extracted.rename(target)
+    print('[prepare] Preparing CIFAR-10 JPEG images', flush=True)
     prepare_cifar_images(target)
+    print('[prepare] Preparing CIFAR-10 array layouts', flush=True)
     prepare_cifar_layouts(target)
+    print('[prepare] Preparing CIFAR-10 TFRecord shards', flush=True)
     prepare_tfrecord(target)
     info['path'] = str(target)
     info['files'] = dataset_files(target)
@@ -198,23 +253,25 @@ def prepare_wikitext(root: Path) -> dict:
     check_budget(root, owned_bytes(owned), 200 * 1024 * 1024)
     base = owned / 'datasets'
     base.mkdir(exist_ok=True)
-    archive = base / 'wikitext-2-v1.zip'
-    info = download_checked('https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip', archive, '542ccefacc6c27f945fb54453812b3cd')
-    target = base / 'wikitext2'
+    archive = base / 'wikitext-2-raw-v1.zip'
+    info = download_checked('https://huggingface.co/datasets/ggml-org/ci/resolve/927b3642933080f1b0e811e2f916e14c292992f9/wikitext-2-raw-v1.zip', archive, 'f407a2d53283fc4a49bcff21bc5f3770')
+    target = base / 'wikitext2-raw-v1'
     if not target.exists():
+        print('[prepare] Extracting and tokenizing WikiText-2', flush=True)
         with tempfile.TemporaryDirectory(prefix='.wiki-', dir=base) as tmp:
             extracted = Path(tmp) / 'data'
             extract_zip(archive, extracted)
-            train = (extracted / 'wikitext-2/wiki.train.tokens').read_text(encoding='utf-8').split()
+            train = (extracted / 'wikitext-2-raw/wiki.train.raw').read_text(encoding='utf-8').split()
             vocab = ['<unk>'] + [word for word, _ in sorted(collections.Counter(train).items(), key=lambda pair: (-pair[1], pair[0]))[:31999] if word != '<unk>']
             lookup = {word: i for i, word in enumerate(vocab)}
             for split in ('train', 'valid', 'test'):
-                words = (extracted / f'wikitext-2/wiki.{split}.tokens').read_text(encoding='utf-8').split()
+                words = (extracted / f'wikitext-2-raw/wiki.{split}.raw').read_text(encoding='utf-8').split()
                 (extracted / f'{split}.json').write_text(json.dumps([lookup.get(word, 0) for word in words]))
             (extracted / 'vocab.json').write_text(json.dumps(vocab, ensure_ascii=False))
             extracted.rename(target)
     info['path'] = str(target)
     info['files'] = dataset_files(target)
+    info['variant'] = 'raw-v1'
     info['tokenizer'] = 'whitespace, top 32000 tokens by frequency then lexical order, unknown=0'
     info['license'] = 'See https://blog.salesforceairesearch.com/the-wikitext-long-term-dependency-language-modeling-dataset/'
     (base / 'wikitext2-provenance.json').write_text(json.dumps(info, indent=2))
@@ -234,7 +291,11 @@ def dataset_files(root: Path) -> dict[str, str]:
         ValueError: If a symlink appears inside the dataset.
     """
     result = {}
-    for path in sorted(root.rglob('*')):
+    paths = sorted(root.rglob('*'))
+    files = [path for path in paths if path.is_file() or path.is_symlink()]
+    print(f'[prepare] Hashing {len(files)} files in {root}', flush=True)
+    started = time.monotonic()
+    for index, path in enumerate(files, start=1):
         if path.is_symlink():
             raise ValueError(f'Dataset symlink is not allowed: {path}')
         if path.is_file():
@@ -243,6 +304,9 @@ def dataset_files(root: Path) -> dict[str, str]:
                 for block in iter(lambda: file.read(1048576), b''):
                     digest.update(block)
             result[str(path.relative_to(root))] = digest.hexdigest()
+        if index % 5000 == 0 or index == len(files):
+            eta = (len(files) - index) * (time.monotonic() - started) / index
+            print(f'[prepare] Hashed {index}/{len(files)} files; approximate ETA {eta / 60:.1f} min', flush=True)
     return result
 
 
@@ -275,12 +339,16 @@ def write_image_layout(root: Path, samples, encoder) -> int:
         ValueError: If a label is outside the CIFAR-10 class range.
     """
     count = 0
+    started = time.monotonic()
     for count, (image, label) in enumerate(samples, start=1):
         if not isinstance(label, int) or not 0 <= label <= 9:
             raise ValueError('Invalid CIFAR-10 class label')
         directory = root / str(label)
         directory.mkdir(parents=True, exist_ok=True)
         encoder(image, directory / f'{count - 1:08d}.jpg')
+        if count % 5000 == 0:
+            eta = (50000 - count) * (time.monotonic() - started) / count
+            print(f'[prepare] JPEG images written: {count}/50000; approximate ETA {eta / 60:.1f} min', flush=True)
     return count
 
 
@@ -390,6 +458,7 @@ def prepare_cifar_layouts(dataset: Path) -> None:
             labels[offset:end] = y
             np.savez(shards / f'{index:02d}.npz', images=array, labels=y)
             offset = end
+            print(f'[prepare] Array batch {index}/5 written', flush=True)
         if offset != 50000:
             raise ValueError('Unexpected CIFAR-10 training sample count')
         images.flush()

@@ -3,6 +3,7 @@
 import json
 import sys
 import time
+from bdbench.progress import emit_progress
 
 
 def measure(case: dict) -> dict:
@@ -15,6 +16,7 @@ def measure(case: dict) -> dict:
         First-compile and in-process reuse latencies with runtime metadata.
     """
     gpu = case['device'] != 'cpu'
+    emit_progress(f'Importing {case["framework"]} and constructing compiled model')
     if case['framework'] == 'pytorch':
         import torch
         if gpu and not torch.cuda.is_available():
@@ -32,12 +34,15 @@ def measure(case: dict) -> dict:
             optimizer.step()
             if gpu:
                 torch.cuda.synchronize()
+        emit_progress('Measuring first compiled step')
         start = time.perf_counter()
         step()
         first = time.perf_counter() - start
+        emit_progress(f'First compiled step complete in {first:.2f} s; measuring reuse')
         start = time.perf_counter()
         step()
         second = time.perf_counter() - start
+        emit_progress(f'Reused step complete in {second:.2f} s')
         runtime = {'framework':'pytorch','version':torch.__version__,'cuda':torch.version.cuda,'cudnn':torch.backends.cudnn.version()}
     elif case['framework'] == 'tensorflow':
         import tensorflow as tf
@@ -56,12 +61,15 @@ def measure(case: dict) -> dict:
                     loss = loss_fn(y, model(x, training=True))
                 optimizer.apply_gradients(zip(tape.gradient(loss, model.trainable_variables), model.trainable_variables))
                 return loss
+            emit_progress('Measuring first compiled step')
             start = time.perf_counter()
             step().numpy()
             first = time.perf_counter() - start
+            emit_progress(f'First compiled step complete in {first:.2f} s; measuring reuse')
             start = time.perf_counter()
             step().numpy()
             second = time.perf_counter() - start
+            emit_progress(f'Reused step complete in {second:.2f} s')
         runtime = {'framework':'tensorflow','version':tf.__version__,'build':tf.sysconfig.get_build_info()}
     else:
         raise ValueError('Unsupported compiler framework')

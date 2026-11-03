@@ -10,10 +10,11 @@ import shutil
 import signal
 import threading
 import time
+import tempfile
 import uuid
 
 from bdbench.protection import capture_protection, protection_changed
-from bdbench.progress import format_duration, remaining_estimate
+from bdbench.progress import format_duration, read_progress, remaining_estimate
 from bdbench.inventory import inventory_environment
 from bdbench.interference import ensure_cpu_idle, ensure_gpus_idle, ensure_memory_available
 from bdbench.compare import validate_environment_compatibility
@@ -115,12 +116,32 @@ def run_worker(case: dict) -> dict:
         if not perf:
             return {'status': 'skipped', 'error': 'perf executable not available', 'metrics': {}}
         command = [perf, 'stat', '-x,', '-e', 'cycles,instructions,cache-misses,context-switches', '--', *command]
-    try:
-        process_start = time.perf_counter()
-        completed = run_process(command, json.dumps(case), env, case.get('timeout_s', 600))
-        process_elapsed = time.perf_counter() - process_start
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return {'status': 'failed', 'error': str(exc), 'metrics': {}}
+    with tempfile.TemporaryDirectory(prefix='bdbench-progress-') as temporary:
+        progress_path = Path(temporary) / 'worker.log'
+        env['BDBENCH_PROGRESS_PATH'] = str(progress_path)
+        progress_stop = threading.Event()
+        def relay_progress():
+            offset = 0
+            while True:
+                messages, offset = read_progress(progress_path, offset)
+                for message in messages:
+                    print(f'[worker] {message}', flush=True)
+                if progress_stop.wait(1):
+                    messages, offset = read_progress(progress_path, offset)
+                    for message in messages:
+                        print(f'[worker] {message}', flush=True)
+                    return
+        relay = threading.Thread(target=relay_progress, daemon=True)
+        relay.start()
+        try:
+            process_start = time.perf_counter()
+            completed = run_process(command, json.dumps(case), env, case.get('timeout_s', 600))
+            process_elapsed = time.perf_counter() - process_start
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {'status': 'failed', 'error': str(exc), 'metrics': {}}
+        finally:
+            progress_stop.set()
+            relay.join(timeout=2)
     if completed.returncode:
         if case.get('diagnostic') == 'perf_stat' and ('permission' in completed.stderr.lower() or 'not supported' in completed.stderr.lower()):
             return {'status': 'skipped', 'error': completed.stderr[-8192:], 'metrics': {}}
@@ -178,6 +199,7 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
     completed_seconds = 0.0
     print(f'[benchmark] Session {session_dir.name}: {pending} trials remaining, {len(done)} already completed.', flush=True)
     environment_path = session_dir / 'environment.json'
+    print('[benchmark] Capturing hardware, software and protection inventory.', flush=True)
     if resume and environment_path.exists():
         previous_environment = json.loads(environment_path.read_text())
         if previous_environment.get('condition') != condition:
@@ -201,6 +223,7 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                 ensure_memory_available(threshold=manifest.get('settings', {}).get('max_memory_percent', 90.0))
                 if case['device'] != 'cpu':
                     ensure_gpus_idle(case.get('device_uuids', [case['device']]))
+                print(f'[benchmark] Resources idle for {trial_id}; recording protection state.', flush=True)
                 protection_before = capture_protection(condition)
                 attempt_id = uuid.uuid4().hex
                 start = time.monotonic_ns()
@@ -229,10 +252,11 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                         stop.wait(sampling_period)
                 sampler = threading.Thread(target=sample_loop, daemon=True)
                 sampler.start()
+                print(f'[benchmark] Telemetry sampler started; launching isolated worker for {trial_id}.', flush=True)
                 worker_start = time.monotonic()
                 heartbeat_stop = threading.Event()
                 def heartbeat():
-                    while not heartbeat_stop.wait(30):
+                    while not heartbeat_stop.wait(10):
                         estimate = remaining_estimate(completed_seconds, completed_now, pending)
                         eta_text = f'approximate ETA {format_duration(estimate)} based on previous trials' if estimate is not None else 'ETA available after the first trial'
                         print(f'[benchmark] Still running {trial_id}: {format_duration(time.monotonic() - worker_start)} elapsed; {eta_text}.', flush=True)
@@ -251,6 +275,7 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                     heartbeat_thread.join(timeout=1)
                     stop.set()
                     sampler.join(timeout=6)
+                print(f'[benchmark] Worker finished; collecting telemetry and energy for {trial_id}.', flush=True)
                 if (session_dir / 'telemetry.jsonl').exists():
                     with (session_dir / 'telemetry.jsonl').open(encoding='utf-8') as telemetry:
                         samples = [json.loads(line) for line in telemetry if line.strip()]
@@ -268,6 +293,7 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                         unit = energy_work_unit(result.get('metrics', {}).get('throughput', {}).get('unit', ''))
                         result['metrics'][f'rapl_energy_per_work_{domain}'] = {'value': energy_per_work(energy, result.get('work_completed', 0)), 'unit': unit, 'source': 'sampled RAPL domain energy divided by completed work'}
                 protection_after = capture_protection(condition)
+                print(f'[benchmark] Checking protection state and saving result for {trial_id}.', flush=True)
                 if sampling_errors:
                     result['warnings'] = [f'Telemetry collection failed: {error}' for error in sampling_errors]
                 result['protection_before'] = protection_before

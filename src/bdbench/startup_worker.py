@@ -3,6 +3,7 @@
 import json
 import sys
 import time
+from bdbench.progress import emit_progress
 
 
 def measure(case: dict) -> dict:
@@ -14,11 +15,13 @@ def measure(case: dict) -> dict:
     Returns:
         Startup timing metrics and framework runtime metadata.
     """
+    emit_progress(f'Importing {case["framework"]} for startup timing')
     start = time.perf_counter()
     gpu = case['device'] != 'cpu'
     if case['framework'] == 'pytorch':
         import torch
         import_elapsed = time.perf_counter() - start
+        emit_progress(f'Framework import complete in {import_elapsed:.2f} s; initializing PyTorch model')
         init_start = time.perf_counter()
         if gpu and not torch.cuda.is_available():
             raise RuntimeError('Selected CUDA device is unavailable to PyTorch')
@@ -30,6 +33,7 @@ def measure(case: dict) -> dict:
         if gpu:
             torch.cuda.synchronize()
         init_elapsed = time.perf_counter() - init_start
+        emit_progress(f'Model initialized in {init_elapsed:.2f} s; measuring first step')
         step_start = time.perf_counter()
         loss = torch.nn.functional.cross_entropy(model(x), y)
         loss.backward()
@@ -37,10 +41,12 @@ def measure(case: dict) -> dict:
         if gpu:
             torch.cuda.synchronize()
         step_elapsed = time.perf_counter() - step_start
+        emit_progress(f'First step complete in {step_elapsed:.2f} s')
         runtime = {'framework':'pytorch','version':torch.__version__,'cuda':torch.version.cuda,'cudnn':torch.backends.cudnn.version()}
     elif case['framework'] == 'tensorflow':
         import tensorflow as tf
         import_elapsed = time.perf_counter() - start
+        emit_progress(f'Framework import complete in {import_elapsed:.2f} s; initializing TensorFlow model')
         init_start = time.perf_counter()
         if gpu and not tf.config.list_physical_devices('GPU'):
             raise RuntimeError('Selected CUDA device is unavailable to TensorFlow')
@@ -57,9 +63,11 @@ def measure(case: dict) -> dict:
                 optimizer.apply_gradients(zip(tape.gradient(value, model.trainable_variables), model.trainable_variables))
                 return value
             init_elapsed = time.perf_counter() - init_start
+            emit_progress(f'Model initialized in {init_elapsed:.2f} s; measuring first step')
             step_start = time.perf_counter()
             step().numpy()
             step_elapsed = time.perf_counter() - step_start
+            emit_progress(f'First step complete in {step_elapsed:.2f} s')
         runtime = {'framework':'tensorflow','version':tf.__version__,'build':tf.sysconfig.get_build_info()}
     else:
         raise ValueError('Unsupported startup framework')

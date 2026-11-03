@@ -52,9 +52,10 @@ def setup():
 @click.option('--gpu', multiple=True, help='Select an NVIDIA GPU by UUID. Repeat for multiple devices.')
 @click.option('--cpu-only', is_flag=True)
 @click.option('--storage-root', multiple=True, type=click.Path(exists=True, file_okay=False, path_type=Path), help='Select a storage directory. Repeat to add drives.')
+@click.option('--cifar-source', type=click.Choice(['toronto', 'huggingface', 'zenodo']), default='toronto', show_default=True, help='Archive source when CIFAR-10 is not already present.')
 @click.option('--calibrate/--no-calibrate', default=True, help='Measure short probes while preparing the manifest.')
 @click.option('--output', type=click.Path(path_type=Path), default=ROOT / 'prepared' / 'manifest.json')
-def prepare(config_path, gpu, cpu_only, storage_root, calibrate, output):
+def prepare(config_path, gpu, cpu_only, storage_root, cifar_source, calibrate, output):
     """Freeze the selected workload settings into a manifest."""
     if output.exists():
         raise click.ClickException('Manifest already exists, select a new output path')
@@ -82,9 +83,12 @@ def prepare(config_path, gpu, cpu_only, storage_root, calibrate, output):
     if settings['storage_roots']:
         check_total_budget([Path(root) for root in settings['storage_roots']], 1400 * 1024 * 1024)
         click.echo('Preparing CIFAR-10: download, extraction, conversion and checksums may take several minutes.')
-        cifar10 = prepare_cifar10(Path(settings['storage_roots'][0]))
-        click.echo('CIFAR-10 ready. Preparing WikiText-2.')
-        wikitext2 = prepare_wikitext(Path(settings['storage_roots'][0]))
+        try:
+            cifar10 = prepare_cifar10(Path(settings['storage_roots'][0]), source=cifar_source)
+            click.echo('CIFAR-10 ready. Preparing WikiText-2 raw-v1.')
+            wikitext2 = prepare_wikitext(Path(settings['storage_roots'][0]))
+        except (ValueError, OSError) as exc:
+            raise click.ClickException(f'Dataset preparation failed: {exc}') from exc
         settings['datasets'] = {'cifar10': cifar10, 'wikitext2': wikitext2}
         click.echo('Datasets ready.')
     cases = build_cases(settings)
