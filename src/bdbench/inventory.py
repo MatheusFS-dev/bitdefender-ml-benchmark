@@ -6,6 +6,7 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+import shutil
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -56,7 +57,13 @@ def inventory_environment() -> dict:
             governors.append(path.read_text().strip())
         except OSError:
             continue
-    return {'hardware': {'cpu': cpu, 'logical_cpus': logical, 'physical_cores': physical, 'effective_cpus': effective, 'gpus': _gpu_inventory()}, 'software': {'kernel': platform.release(), 'architecture': platform.machine(), 'python': sys.version, 'framework_versions': framework_versions(), 'cpu_governors': sorted(set(governors)) or None, 'lock_hashes': locks}}
+    memory_bytes = None
+    try:
+        memory_bytes = psutil.virtual_memory().total
+    except (ImportError, NameError):
+        pass
+    disk = shutil.disk_usage(ROOT)
+    return {'hardware': {'cpu': cpu, 'logical_cpus': logical, 'physical_cores': physical, 'effective_cpus': effective, 'memory_bytes': memory_bytes, 'storage_total_bytes': disk.total, 'gpus': _gpu_inventory()}, 'software': {'system': platform.system(), 'distribution': platform.freedesktop_os_release().get('PRETTY_NAME') if hasattr(platform, 'freedesktop_os_release') else None, 'kernel': platform.release(), 'architecture': platform.machine(), 'python': sys.version, 'framework_versions': framework_versions(), 'cpu_governors': sorted(set(governors)) or None, 'lock_hashes': locks}}
 
 
 def effective_cpu_count(logical: int, affinity: int, cpu_max: str) -> int:

@@ -58,3 +58,25 @@ def write_telemetry_figures(rows: list[dict], output: Path) -> list[Path]:
             paths.append(path)
         plt.close(fig)
     return paths
+def plot_comparison(rows: list[dict], output: Path) -> None:
+    """Plot relative differences for measured performance metrics.
+
+    Args:
+        rows: Comparable metric summaries.
+        output: PNG destination.
+    """
+    import matplotlib.pyplot as plt
+    selected = [row for row in rows if row.get('change_percent') is not None and any(word in row['metric'] for word in ('throughput', 'elapsed', 'load_time', 'save_time', 'dataset_load', 'gpu_utilization', 'gpu_power', 'bitdefender_cpu', 'small_files'))]
+    selected = selected[:40]
+    plt.rcParams.update({'font.family': 'DejaVu Serif', 'axes.spines.top': False, 'axes.spines.right': False, 'figure.facecolor': 'white', 'axes.facecolor': 'white'})
+    fig, ax = plt.subplots(figsize=(10, max(3, .28 * len(selected) + 1)))
+    labels = [f"{row['case_id']} {row['metric']}" for row in selected]
+    values = [row['change_percent'] for row in selected]
+    ax.barh(labels, values, color='#527b91')
+    ax.axvline(0, color='#333333', linewidth=.7)
+    ax.set_xlabel('Diferença relativa (%)')
+    ax.grid(axis='x', linestyle='--', linewidth=.4, alpha=.35)
+    ax.invert_yaxis()
+    fig.tight_layout()
+    fig.savefig(output, dpi=180, bbox_inches='tight')
+    plt.close(fig)

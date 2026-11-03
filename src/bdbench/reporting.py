@@ -99,7 +99,7 @@ def write_session_report(session_dir: Path, output_dir: Path) -> list[Path]:
     return [html_path, md_path, csv_path, *figures]
 
 
-def write_comparison_report(rows: list[dict], output_dir: Path, exclusions: list[dict] | None = None) -> list[Path]:
+def write_comparison_report(rows: list[dict], output_dir: Path, exclusions: list[dict] | None = None, environment_differences: dict | None = None, trial_issues: list[dict] | None = None) -> list[Path]:
     """Write descriptive comparison artifacts without network access.
 
     Args:
@@ -114,8 +114,10 @@ def write_comparison_report(rows: list[dict], output_dir: Path, exclusions: list
     note = 'Protection policy status is not verified by process evidence alone. Differences are descriptive and may be confounded. Trial bootstrap intervals do not account for session-level confounding; multiple sessions use session-level resampling.'
     json_path = output_dir / 'comparison.json'
     exclusions = exclusions or []
-    json_path.write_text(json.dumps({'note': note, 'rows': rows, 'exclusions': exclusions}, indent=2, allow_nan=False), encoding='utf-8')
-    fields = ['case_id', 'metric', 'unit', 'baseline', 'protected', 'change_percent', 'ci95_low', 'ci95_high', 'baseline_count', 'protected_count', 'bootstrap_unit', 'baseline_sessions', 'protected_sessions', 'interpretation', 'verified_attribution']
+    environment_differences = environment_differences or {}
+    trial_issues = trial_issues or []
+    json_path.write_text(json.dumps({'note': note, 'rows': rows, 'exclusions': exclusions, 'environment_differences': environment_differences, 'trial_issues': trial_issues}, indent=2, allow_nan=False), encoding='utf-8')
+    fields = ['case_id', 'metric', 'unit', 'baseline', 'protected', 'baseline_sd', 'protected_sd', 'baseline_p95', 'protected_p95', 'change_percent', 'ci95_low', 'ci95_high', 'baseline_count', 'protected_count', 'bootstrap_unit', 'baseline_sessions', 'protected_sessions', 'interpretation', 'verified_attribution']
     csv_path = output_dir / 'comparison.csv'
     with csv_path.open('w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, fieldnames=fields, extrasaction='ignore')
@@ -125,8 +127,13 @@ def write_comparison_report(rows: list[dict], output_dir: Path, exclusions: list
     body = ''.join('<tr>' + ''.join(f'<td>{html.escape(str(row.get(field, "")))}</td>' for field in fields) + '</tr>' for row in rows)
     html_path = output_dir / 'comparison.html'
     excluded = ''.join('<li>' + html.escape(str(item['case_id'])) + ': ' + html.escape(str(item['reason'])) + '</li>' for item in exclusions)
-    html_path.write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Benchmark comparison</title><h1>Benchmark comparison</h1><p>' + html.escape(note) + '</p><table><thead><tr>' + headers + '</tr></thead><tbody>' + body + '</tbody></table><h2>Excluded cases</h2><ul>' + excluded + '</ul></html>', encoding='utf-8')
-    return [html_path, csv_path, json_path]
+    differences = ''.join('<li>' + html.escape(str(key)) + ': ' + html.escape(str(value)) + '</li>' for key, value in environment_differences.items())
+    issues = ''.join('<li>' + html.escape(str(item)) + '</li>' for item in trial_issues)
+    html_path.write_text('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Comparação do benchmark</title><h1>Comparação do benchmark</h1><p>' + html.escape(note) + '</p><h2>Diferenças entre PCs</h2><ul>' + differences + '</ul><table><thead><tr>' + headers + '</tr></thead><tbody>' + body + '</tbody></table><h2>Casos excluídos</h2><ul>' + excluded + '</ul><h2>Falhas e interferências</h2><ul>' + issues + '</ul><img src="comparison.png" alt="Diferenças relativas nas principais métricas"></html>', encoding='utf-8')
+    from bdbench.plots import plot_comparison
+    figure = output_dir / 'comparison.png'
+    plot_comparison(rows, figure)
+    return [html_path, csv_path, json_path, figure]
 
 
 def scaling_rows(cases: list[dict], results: list[dict]) -> list[dict]:

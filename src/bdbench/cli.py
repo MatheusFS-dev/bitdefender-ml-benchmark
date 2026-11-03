@@ -21,6 +21,7 @@ from bdbench.prepare import calibrate_cases, scale_training_budget
 from bdbench.serialization import canonical_hash, verify_manifest
 from bdbench.session import read_results
 from bdbench.storage import check_total_budget
+from bdbench.portable import normalize_sessions
 
 
 @click.group()
@@ -151,7 +152,8 @@ def compare(baseline, protected, output):
     """Compare saved sessions sharing an identical manifest."""
     try:
         reference = json.loads((baseline[0] / 'environment.json').read_text())
-        validate_condition_labels([json.loads((path / 'environment.json').read_text()) for path in baseline], [json.loads((path / 'environment.json').read_text()) for path in protected])
+        environments = [json.loads((path / 'environment.json').read_text()) for path in baseline + protected]
+        validate_condition_labels(environments[:len(baseline)], environments[len(baseline):])
         def load_group(paths):
             sessions = []
             for path in paths:
@@ -162,11 +164,25 @@ def compare(baseline, protected, output):
                 sessions.append((manifest, read_results(path / 'results.jsonl')))
             return sessions
         baseline_sessions, protected_sessions = load_group(baseline), load_group(protected)
+        normalized = normalize_sessions(baseline_sessions + protected_sessions)
+        baseline_sessions, protected_sessions = normalized[:len(baseline)], normalized[len(baseline):]
         rows = compare_session_groups(baseline_sessions, protected_sessions)
         exclusions = excluded_cases(baseline_sessions[0][0], [record for _, records in baseline_sessions for record in records], [record for _, records in protected_sessions for record in records])
+        differences = {}
+        for index, environment in enumerate(environments[1:], 1):
+            for section in ('hardware', 'software'):
+                for key, value in reference[section].items():
+                    other = environment[section].get(key)
+                    if value != other:
+                        differences[f'session {index} {section}.{key}'] = {'baseline': value, 'other': other}
+        issues = []
+        for index, (_, records) in enumerate(baseline_sessions + protected_sessions):
+            for record in records:
+                if record.get('status') != 'completed' or record.get('contamination') or record.get('warnings'):
+                    issues.append({'session': str((baseline + protected)[index]), 'case_id': record.get('case_id'), 'trial_id': record.get('trial_id'), 'status': record.get('status'), 'contamination': record.get('contamination'), 'warnings': record.get('warnings'), 'error': record.get('error')})
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
-    for path in write_comparison_report(rows, output, exclusions):
+    for path in write_comparison_report(rows, output, exclusions, differences, issues):
         click.echo(str(path))
 
 

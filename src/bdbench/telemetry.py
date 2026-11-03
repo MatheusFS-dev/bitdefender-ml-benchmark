@@ -295,7 +295,7 @@ def summarize_trial_telemetry(records: list[dict], trial_id: str, attempt_id: st
     """
     from statistics import mean
     records = [row for row in records if row.get('trial_id') == trial_id and (attempt_id is None or row.get('attempt_id') == attempt_id)]
-    cpu, gpu, gpu_memory, worker_rss, security_rss = [], [], [], [], []
+    cpu, gpu, gpu_power, gpu_memory, worker_rss, security_rss = [], [], [], [], [], []
     security_previous = {}
     security_cpu_delta = []
     disk_previous = {}
@@ -312,6 +312,8 @@ def summarize_trial_telemetry(records: list[dict], trial_id: str, attempt_id: st
             cpu.append(host['cpu_percent'])
         if device.get('utilization_percent') is not None:
             gpu.append(device['utilization_percent'])
+        if device.get('power_w') is not None:
+            gpu_power.append(device['power_w'])
         if device.get('memory_used_mib') is not None:
             gpu_memory.append(device['memory_used_mib'])
         workers = (row.get('workers') or {}).get('value')
@@ -330,7 +332,7 @@ def summarize_trial_telemetry(records: list[dict], trial_id: str, attempt_id: st
             security_previous = {}
     def metric(values, unit, aggregate, source):
         return {'value': aggregate(values) if values else None, 'unit': unit, 'source': source, 'reason': None if values else 'No available samples'}
-    result = {'cpu_utilization_mean': metric(cpu, '%', mean, 'psutil system sampling'), 'gpu_utilization_mean': metric(gpu, '%', mean, 'first selected GPU sampling'), 'gpu_memory_peak': metric(gpu_memory, 'MiB', max, 'first selected GPU sampling'), 'worker_rss_peak': metric(worker_rss, 'bytes', max, 'sampled sum of visible controller child RSS'), 'bitdefender_rss_peak': metric(security_rss, 'bytes', max, 'sampled sum of visible Bitdefender RSS'), 'bitdefender_cpu_time': metric(security_cpu_delta, 's', sum, 'sampled visible process CPU-time deltas')}
+    result = {'cpu_utilization_mean': metric(cpu, '%', mean, 'psutil system sampling'), 'gpu_utilization_mean': metric(gpu, '%', mean, 'first selected GPU sampling'), 'gpu_power_mean': metric(gpu_power, 'W', mean, 'first selected GPU board power sampling'), 'gpu_memory_peak': metric(gpu_memory, 'MiB', max, 'first selected GPU sampling'), 'worker_rss_peak': metric(worker_rss, 'bytes', max, 'sampled sum of visible controller child RSS'), 'bitdefender_rss_peak': metric(security_rss, 'bytes', max, 'sampled sum of visible Bitdefender RSS'), 'bitdefender_cpu_time': metric(security_cpu_delta, 's', sum, 'sampled visible process CPU-time deltas')}
     for name, values in disk_deltas.items():
         unit = 'bytes' if name.endswith('bytes') else 'ms' if name.endswith('time') else 'operations'
         result['system_disk_' + name] = metric(values, unit, sum, 'sampled host-wide cumulative disk counter deltas, excludes resets')
