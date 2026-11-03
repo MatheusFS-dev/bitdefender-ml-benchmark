@@ -12,7 +12,7 @@ Faça uma revisão de consistência de unidades, percentuais, sinais e referênc
 
 ## Coleta e comparação
 
-No PC com Bitdefender, execute `./run-with-bitdefender.sh`. No PC sem Bitdefender, execute `./run-without-bitdefender.sh`. Cada script prepara o perfil `standard` com trabalho fixo, três repetições, RTX 4070 e dados em `benchmark-data/`. Defina `BDBENCH_STORAGE_ROOT` antes de executar se precisar usar outro disco. A preparação pode baixar CIFAR-10 e WikiText-2, e a campanha pode ser longa.
+No PC com Bitdefender, execute `./run-with-bitdefender.sh`. No PC sem Bitdefender, execute `./run-without-bitdefender.sh`. Cada script lista as GPUs NVIDIA detectadas e pede que você escolha uma pelo número. Escolha GPUs de especificação equivalente nos dois PCs. O perfil `standard` usa trabalho fixo, três repetições e dados em `benchmark-data/`. Defina `BDBENCH_STORAGE_ROOT` antes de executar se precisar usar outro disco. A preparação pode baixar CIFAR-10 e WikiText-2, e a campanha pode ser longa.
 
 Copie os diretórios inteiros `sessions/<nome>` para um PC e execute:
 

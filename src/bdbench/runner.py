@@ -13,6 +13,7 @@ import time
 import uuid
 
 from bdbench.protection import capture_protection, protection_changed
+from bdbench.progress import format_duration, remaining_estimate
 from bdbench.inventory import inventory_environment
 from bdbench.interference import ensure_cpu_idle, ensure_gpus_idle, ensure_memory_available
 from bdbench.compare import validate_environment_compatibility
@@ -172,6 +173,10 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
     result_path = session_dir / 'results.jsonl'
     previous = read_results(result_path, recover_tail=resume)
     done = {r['trial_id'] for r in previous if r.get('status') == 'completed'}
+    pending = sum(f"{case['case_id']}-{repetition}" not in done for case in manifest['cases'] for repetition in range(case['repetitions']))
+    completed_now = 0
+    completed_seconds = 0.0
+    print(f'[benchmark] Session {session_dir.name}: {pending} trials remaining, {len(done)} already completed.', flush=True)
     environment_path = session_dir / 'environment.json'
     if resume and environment_path.exists():
         previous_environment = json.loads(environment_path.read_text())
@@ -190,6 +195,8 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                 trial_id = f"{case['case_id']}-{repetition}"
                 if trial_id in done:
                     continue
+                label = f"{case['framework']}/{case['model']} on {case['device']}"
+                print(f'[benchmark] Trial {completed_now + 1}/{pending}: {label}, repetition {repetition + 1}/{case["repetitions"]}. Checking idle resources.', flush=True)
                 ensure_cpu_idle(threshold=manifest.get('settings', {}).get('max_cpu_percent', 80.0))
                 ensure_memory_available(threshold=manifest.get('settings', {}).get('max_memory_percent', 90.0))
                 if case['device'] != 'cpu':
@@ -222,6 +229,15 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                         stop.wait(sampling_period)
                 sampler = threading.Thread(target=sample_loop, daemon=True)
                 sampler.start()
+                worker_start = time.monotonic()
+                heartbeat_stop = threading.Event()
+                def heartbeat():
+                    while not heartbeat_stop.wait(30):
+                        estimate = remaining_estimate(completed_seconds, completed_now, pending)
+                        eta_text = f'approximate ETA {format_duration(estimate)} based on previous trials' if estimate is not None else 'ETA available after the first trial'
+                        print(f'[benchmark] Still running {trial_id}: {format_duration(time.monotonic() - worker_start)} elapsed; {eta_text}.', flush=True)
+                heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
+                heartbeat_thread.start()
                 try:
                     runtime_case = dict(case)
                     runtime_case.setdefault('timeout_s', manifest.get('settings', {}).get('trial_timeout_s', 600.0))
@@ -231,6 +247,8 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                         runtime_case['profile_output'] = str(trace_dir)
                     result = run_worker(runtime_case)
                 finally:
+                    heartbeat_stop.set()
+                    heartbeat_thread.join(timeout=1)
                     stop.set()
                     sampler.join(timeout=6)
                 if (session_dir / 'telemetry.jsonl').exists():
@@ -263,5 +281,10 @@ def _run_session_locked(manifest: dict, condition: str, session_dir: Path, resum
                     result = {'schema_version': 1, 'session_id': session_dir.name, 'trial_id': trial_id, 'attempt_id': attempt_id, 'case_id': case['case_id'], 'phase': 'worker_lifecycle', 'utc_anchor': utc_anchor, 'start_mono_ns': start, 'end_mono_ns': time.monotonic_ns(), 'status': 'failed', 'metrics': {}, 'error': f'Invalid worker result: {exc}', 'protection_before': protection_before, 'protection_after': protection_after, 'contamination': []}
                     validate_record('trial', result)
                 append_result(result_path, result)
+                completed_now += 1
+                completed_seconds += time.monotonic() - worker_start
+                remaining = remaining_estimate(completed_seconds, completed_now, pending)
+                print(f'[benchmark] Finished {completed_now}/{pending}: {result["status"]}; elapsed {format_duration(completed_seconds)}; approximate ETA {format_duration(remaining)}.', flush=True)
     finally:
+        print('[benchmark] Generating session report.', flush=True)
         write_session_report(session_dir, session_dir / 'report')

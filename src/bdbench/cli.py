@@ -81,7 +81,12 @@ def prepare(config_path, gpu, cpu_only, storage_root, calibrate, output):
             raise click.ClickException(str(exc)) from exc
     if settings['storage_roots']:
         check_total_budget([Path(root) for root in settings['storage_roots']], 1400 * 1024 * 1024)
-        settings['datasets'] = {'cifar10': prepare_cifar10(Path(settings['storage_roots'][0])), 'wikitext2': prepare_wikitext(Path(settings['storage_roots'][0]))}
+        click.echo('Preparing CIFAR-10: download, extraction, conversion and checksums may take several minutes.')
+        cifar10 = prepare_cifar10(Path(settings['storage_roots'][0]))
+        click.echo('CIFAR-10 ready. Preparing WikiText-2.')
+        wikitext2 = prepare_wikitext(Path(settings['storage_roots'][0]))
+        settings['datasets'] = {'cifar10': cifar10, 'wikitext2': wikitext2}
+        click.echo('Datasets ready.')
     cases = build_cases(settings)
     if not cases:
         raise click.ClickException('No devices selected')
@@ -125,6 +130,7 @@ def run(manifest, condition, session, resume):
     try:
         frozen_manifest = json.loads(manifest.read_text())
         verify_manifest(frozen_manifest)
+        click.echo('Checking prepared dataset hashes before running trials.')
         for dataset in frozen_manifest.get('settings', {}).get('datasets', {}).values():
             verify_dataset_files(Path(dataset['path']), dataset['files'])
         summary = run_session(frozen_manifest, condition, ROOT / 'sessions' / session, resume)
