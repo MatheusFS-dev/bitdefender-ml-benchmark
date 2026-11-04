@@ -1,19 +1,44 @@
 """Detect unrelated GPU compute workloads without changing them."""
 
+import os
 import subprocess
+
+GRAPHICAL_PROCESS_NAMES = frozenset({
+    'xorg', 'xwayland', 'gnome-shell', 'gnome-remote-desktop-daemon', 'kwin_wayland', 'kwin_x11', 'plasmashell',
+    'mutter', 'sway', 'weston', 'nautilus', 'opera', 'chrome', 'chromium', 'brave', 'firefox', 'firefox-bin',
+    'code', 'electron', 'slack', 'discord', 'spotify', 'mpv', 'vlc', 'gnome-terminal-server', 'ptyxis', 'obs',
+})
+
+
+def is_graphical(pid: int) -> bool:
+    """Tell whether a PID is a desktop or browser graphics process.
+
+    Args:
+        pid: Process identifier.
+
+    Returns:
+        True when the process executable or command name is a known graphical application.
+    """
+    names = set()
+    for path, reader in (('/proc/%d/comm' % pid, lambda f: f.read().strip()), ('/proc/%d/exe' % pid, None)):
+        try:
+            names.add((os.path.basename(os.readlink(path)) if reader is None else reader(open(path))).lower())
+        except OSError:
+            continue
+    return bool(names & GRAPHICAL_PROCESS_NAMES)
 
 
 def conflicts(selected: list[str], processes: list[dict]) -> list[dict]:
-    """Filter running compute processes to explicitly selected GPUs.
+    """Filter running compute processes to explicitly selected GPUs, ignoring graphical applications.
 
     Args:
         selected: Selected physical GPU UUIDs.
         processes: Observed GPU process records.
 
     Returns:
-        Processes using selected GPUs.
+        Non-graphical processes using selected GPUs.
     """
-    return [process for process in processes if process.get('gpu_uuid') in selected]
+    return [process for process in processes if process.get('gpu_uuid') in selected and not is_graphical(process['pid'])]
 
 
 def gpu_processes() -> list[dict] | None:

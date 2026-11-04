@@ -1,0 +1,157 @@
+{
+  "source": "/home/matheus.f@local.inatel.br/Downloads/bitdefender-ml-benchmark",
+  "files": [
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/environment.json",
+      "sha256": "37e4be64360e8825e96f3f529befba48c9a473f20e1ebf4296fcc93a8a747917"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/.lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/manifest.json",
+      "sha256": "68abad5afb78563add38340f357702d3e6750c7602728dea5bc435c7322ecc1b"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/telemetry.jsonl",
+      "sha256": "e721731af01ccb9acd50a764076647eff12ab27a6b29decfcf8b5965d13ec00f"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/results.jsonl",
+      "sha256": "3913e7a2207669a3624009e261db713da7be5fc1cdad6dbcd4a71447d412e4fe"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/report/report.html",
+      "sha256": "1846d8a34f25168ce3aa51d24689a0f20556881091b55666b47d4e72adc7871c"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/report/summary.csv",
+      "sha256": "59e558a2e49e187eb8fc58eba4494b18ae02161d6bf36250f849e2780b695057"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/report/summary.md",
+      "sha256": "72a91bd509303ab0ed560558dec405a707bedad11629aee767472f716021fd25"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/report/figures/host_cpu_percent.png",
+      "sha256": "8d9c4995c67f15e3b1ac7472f7b8d056cd9fdb6dce4d2912dd0e4515d16b7d54"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T143813Z/report/figures/host_cpu_percent.pdf",
+      "sha256": "1ecda2edb233131e0f8ade45f49b187020c29d1c731aed3c37aff12cfe604231"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/environment.json",
+      "sha256": "afb3ef88ea1fb26f14b840e4bf1f3be263372e169e085729f13fe866905fc6c6"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/.lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/manifest.json",
+      "sha256": "ae8fd5e49075278afc02048647940b53f13e0525c0db249d4570358f473ac8d1"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/telemetry.jsonl",
+      "sha256": "bccb3aa1257c51ee0a36e306c434f79ee9fb262dfcb54f613d8c1632cbcfc83d"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/results.jsonl",
+      "sha256": "050788d832db49d29f7906e4c38ab7343151717f1dfa87ef3d4caf015db70ed8"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/report/report.html",
+      "sha256": "ae1e47c91944b8614200c69521ef34c0ec43f35de59f6321cc29fc018d9cc232"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/report/summary.csv",
+      "sha256": "a5efc2ea55712d59a22e09fc16fbd473f16ae631c5b38f812b324bfcf1309b33"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/report/summary.md",
+      "sha256": "599cecfa782f3af495c88fab81493dbb1fbe5fedc2885a5f69ab4793648d60a5"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/report/figures/host_cpu_percent.png",
+      "sha256": "60bde96d58ede245ac8d125d94092f201117df98b40180f1345d8d5b8284fb07"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T124055Z/report/figures/host_cpu_percent.pdf",
+      "sha256": "0d442ca033af57c966e798d61b6ba77b754d34cec3fe8ccca8a3df8c0e755226"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/environment.json",
+      "sha256": "4a32931a1807122ffcc8d080a297a25b0927b3b3697b465db48e36b01f853e9e"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/.lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/manifest.json",
+      "sha256": "c68bad73d2a54084c20087b39e9c99ef1c2c9383fcb820652b3cc5e507a58428"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/telemetry.jsonl",
+      "sha256": "b0b3e598f59a921b5c7fc7080da6cd0116ff3effc515b2adf61c46aa3fa56cd3"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/results.jsonl",
+      "sha256": "7ae9984c9050342efc808f75f41178faf703db1138cb7e28042109ae373eaa68"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/report.html",
+      "sha256": "e7b9cdf9f2863802b96652c9a16b6a8e32c2af00e3b85761aa9d83092301fe83"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/summary.csv",
+      "sha256": "e0e28c18866b3d52b53c4812c424a6656b7b72fc2eaeefadabd098356eaa9be3"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/summary.md",
+      "sha256": "8851a4692b89df60c02bece048862dc76883a22e9c4757769cd9100964a64903"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/figures/gpu_power_w.png",
+      "sha256": "ace94dd1c91f2b379a5fabc6da4f17038d61d4653b435b62d1002988ff974a81"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/figures/gpu_power_w.pdf",
+      "sha256": "3c02421a702107dccb414948b46292c0db998738e1fe5388fb2e4c5b57d30753"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/figures/gpu_utilization_percent.png",
+      "sha256": "7f2b8d64eefaba4fe357963fb2aeb67c4323164d0e089bc893b1cc07741bd746"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/figures/host_cpu_percent.png",
+      "sha256": "9d8ea0dd212fbd72ef2956754f7a5ea32a22783b5f19d066b8fba52ca6995050"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/figures/gpu_utilization_percent.pdf",
+      "sha256": "9dbc07e94404a9116ec5f0ccb1628f695fbfe6a15bb5232ea53667a951ccf013"
+    },
+    {
+      "path": "sessions/lcrr-049632_-baseline-20261103T163251Z/report/figures/host_cpu_percent.pdf",
+      "sha256": "9d9b201764d7c078e22a748b91a6679408382b50dd342ee3b1e8c72f598a49cc"
+    },
+    {
+      "path": "prepared/lcrr-049632_-baseline-20261103T163251Z.json",
+      "sha256": "c68bad73d2a54084c20087b39e9c99ef1c2c9383fcb820652b3cc5e507a58428"
+    },
+    {
+      "path": "prepared/lcrr-049632_-baseline-20261103T124055Z.json",
+      "sha256": "ae8fd5e49075278afc02048647940b53f13e0525c0db249d4570358f473ac8d1"
+    },
+    {
+      "path": "prepared/lcrr-049632_-baseline-20261103T143813Z.json",
+      "sha256": "68abad5afb78563add38340f357702d3e6750c7602728dea5bc435c7322ecc1b"
+    }
+  ],
+  "code": [
+    "src/bdbench/interference.py"
+  ],
+  "raw_sessions_preserved": true
+}
