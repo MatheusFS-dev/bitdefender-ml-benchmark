@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{microtype,booktabs,array,indentfirst}
+\usepackage[hidelinks]{hyperref}
+\setlength{\parindent}{0.5cm}
+\setlength{\parskip}{0pt}
+\title{Resumo da caracterização de desempenho com Bitdefender}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+\section*{Objetivo e recorte}
+O relatório completo compara uma máquina baseline, sem Bitdefender, e uma máquina Protected, com componentes do Bitdefender observados. Este resumo considera treinamento e inicialização em CPU, carregamento de dados, operações de armazenamento e checkpoints de modelos.
+
+\section*{Método}
+Foi analisada uma sessão por condição, com três observações concluídas por métrica. O relatório apresenta medianas, desvios-padrão amostrais e diferenças percentuais entre as medianas. Os processadores das máquinas são diferentes: Intel Xeon Silver 4316 no baseline e Intel Xeon Gold 5220 em Protected.
+
+\section*{Resultados desfavoráveis à condição Protected}
+\begin{center}
+\small
+\begin{tabular}{@{}p{8.6cm}r@{}}
+\toprule
+Operação & Variação da duração em Protected \\
+\midrule
+Checkpoint de controle de armazenamento & +200,85\% \\
+Manipulação de pequenos arquivos & +188,63\% \\
+Remoção de metadados & +148,00\% \\
+Leituras aleatórias & +96,40\% \\
+Treinamento de CNN, PyTorch, CPU, dados gerados & +76,48\% \\
+Inicialização do PyTorch em CPU & +62,49\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Nos checkpoints de modelo em CPU, a gravação persistente do PyTorch teve aumento de 59,52\% e a leitura teve aumento de 30,77\%. O controle de checkpoint da tabela é uma operação de armazenamento distinta da serialização de um modelo.
+
+\section*{Consumo do agente e interpretação}
+Durante as execuções concluídas da campanha, os componentes do Bitdefender utilizaram em média 142,38\% de um processador lógico, aproximadamente 1,42 processador lógico. O componente ctc concentrou 77,14\% do tempo de processamento do agente. A soma média da memória residente foi de 2,15 GiB. Essas janelas de monitoramento incluem ensaios associados à GPU e não representam somente as tarefas em CPU.
+
+Os maiores aumentos relativos ocorreram em operações curtas de armazenamento. Em rotinas de rádio definido por software (SDR), atrasos repetidos nessas operações e a concorrência por CPU podem comprometer o atendimento de prazos de processamento. Em treinamento de modelos de aprendizado de máquina, os aumentos medidos de inicialização, carregamento e duração de tarefas em CPU podem ampliar o tempo da rotina. Na inferência, a mesma concorrência por CPU pode afetar a latência quando essas etapas compartilham recursos. O relatório completo contém as tabelas de todas as métricas selecionadas e a dispersão das três observações.
+\end{document}

@@ -7,10 +7,9 @@
 \usepackage{microtype,booktabs,longtable,array,amsmath,acro,indentfirst,xcolor}
 \definecolor{piora}{RGB}{180,25,25}
 \definecolor{melhora}{RGB}{0,115,55}
-\setlength{\parindent}{1.25cm}
+\setlength{\parindent}{0.5cm}
 \usepackage[hidelinks]{hyperref}
 \DeclareAcronym{cpu}{short=CPU,long=unidade central de processamento}
-\DeclareAcronym{gpu}{short=GPU,long=unidade de processamento gráfico}
 \DeclareAcronym{mlp}{short=MLP,long=perceptron multicamadas}
 \DeclareAcronym{cnn}{short=CNN,long=rede neural convolucional}
 \DeclareAcronym{sdr}{short=SDR,long=rádio definido por software}
@@ -25,17 +24,17 @@
 \begin{document}
 \maketitle
 \section{Introdução e objetivo}
-O tempo de execução de uma aplicação de aprendizado de máquina depende tanto do processamento numérico quanto das etapas que fornecem dados e preservam o estado do modelo. A inicialização do ambiente, o carregamento dos conjuntos de dados e a gravação de checkpoints podem acrescentar tempo a uma rotina mesmo quando o treinamento utiliza aceleração gráfica. Avaliar essas etapas separadamente permite localizar diferenças que uma única medida de duração total ocultaria.
+O tempo de execução de uma aplicação de aprendizado de máquina depende tanto do processamento numérico quanto das etapas que fornecem dados e preservam o estado do modelo. A inicialização do ambiente, o carregamento dos conjuntos de dados e a gravação de checkpoints podem acrescentar tempo a uma rotina. Avaliar essas etapas separadamente permite localizar diferenças que uma única medida de duração total ocultaria.
 
 A presença de uma solução de segurança constitui uma possível fonte de competição por recursos e de trabalho adicional nas operações de entrada e saída. Essa possibilidade motiva a análise de uma máquina com Bitdefender em relação a uma máquina declarada sem o produto. O problema experimental consiste em distinguir as diferenças observadas entre ambientes de uma contribuição específica do mecanismo de proteção.
 
-Este relatório apresenta uma comparação descritiva entre baseline (sem Bitdefender) e Protected (com Bitdefender). São examinados inicialização, treinamento, computação matricial, carregamento de dados, operações de armazenamento, checkpoints de modelos e consumo dos componentes do Bitdefender. As tabelas incluem as métricas temporais e de taxa de processamento disponíveis nas duas condições, com resultados favoráveis e desfavoráveis à condição Protected (com).
+Este relatório apresenta uma comparação descritiva entre baseline (sem Bitdefender) e Protected (com Bitdefender). São examinados inicialização, treinamento e computação matricial em CPU, carregamento de dados, operações de armazenamento, checkpoints de modelos e consumo dos componentes do Bitdefender. As tabelas incluem as métricas temporais e de taxa de processamento disponíveis nas duas condições, com resultados favoráveis e desfavoráveis à condição Protected (com).
 
 O objetivo é quantificar as diferenças por tarefa e discutir seu significado operacional, mantendo as unidades próprias de cada ensaio.
 
 \section{Metodologia e condições experimentais}
 \subsection{Ambientes de execução}
-Foram consideradas duas sessões de execução, uma por condição: baseline (sem Bitdefender) e Protected (com Bitdefender). A caracterização dos ambientes é apresentada na Tabela~\ref{tab:ambientes}. Em ambos os ambientes foi selecionada uma GeForce RTX 4070.
+Foram consideradas duas sessões de execução, uma por condição: baseline (sem Bitdefender) e Protected (com Bitdefender). A caracterização dos ambientes é apresentada na Tabela~\ref{tab:ambientes}.
 
 \begin{table}[htbp]
 \centering\small
@@ -48,8 +47,6 @@ Sistema operacional & Linux, Ubuntu & Linux, Ubuntu \\
 Python do controlador & 3.13.0 & 3.12.3 \\
 PyTorch / torchvision & 2.14.1 / 0.29.1 & 2.14.1 / 0.29.1 \\
 TensorFlow & 2.21.0 & 2.21.0 \\
-Acelerador selecionado & GeForce RTX 4070 & GeForce RTX 4070 \\
-Driver NVIDIA & 595.99.02 & 595.99.02 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -61,7 +58,7 @@ As cargas abrangeram \ac{mlp}, \ac{cnn}, Transformer, ResNet-18, multiplicação
 
 Os ensaios selecionados de treinamento em PyTorch e TensorFlow utilizaram 200 passos medidos, precedidos por cinco passos de aquecimento, em precisão de ponto flutuante de 32 bits. O tamanho de lote foi 32 nos casos selecionados de dados gerados e CIFAR-10, e 16 no modelo de linguagem com WikiText-2 raw-v1. A semente fixada foi 1234. Esses parâmetros definem trabalho fixo, de modo que as diferenças de tempo não correspondem a critérios diferentes de parada por convergência.
 
-Os tempos de treinamento foram delimitados após a preparação dos dados e separados das medidas de carregamento. As execuções aceleradas empregaram sincronização nos limites de cronometragem. As rotinas de inicialização distinguiram importação do ambiente, inicialização do dispositivo e primeiro passo de treinamento. As operações de armazenamento incluíram leituras aleatórias, manipulação de pequenos arquivos, remoção de metadados e uma operação de controle de checkpoint. As rotinas de checkpoint de modelos distinguiram gravação com e sem sincronização persistente e preservaram o estado do modelo e do otimizador.
+Os tempos de treinamento foram delimitados após a preparação dos dados e separados das medidas de carregamento. As rotinas de inicialização distinguiram importação do ambiente, inicialização e primeiro passo de treinamento. As operações de armazenamento incluíram leituras aleatórias, manipulação de pequenos arquivos, remoção de metadados e uma operação de controle de checkpoint. As rotinas de checkpoint de modelos distinguiram gravação com e sem sincronização persistente e preservaram o estado do modelo e do otimizador.
 
 Cada métrica tabulada reúne três observações concluídas em cada condição. Tentativas com falha foram excluídas, assim como registros com aviso ou contaminação. As duas sessões parciais adicionais da máquina baseline (sem) não foram agregadas à sessão utilizada, preservando uma sessão por condição. A análise apresenta os pares de métricas temporais e de taxa de processamento disponíveis em ambas as condições, sem agregar grandezas de unidades diferentes em uma pontuação global.
 
@@ -74,13 +71,13 @@ A variação descritiva foi calculada por
 \end{equation}
 \par\indent em que $m_{\mathrm{baseline}}$ e $m_{\mathrm{Protected}}$ são as medianas da métrica nas respectivas condições. Para durações, $\Delta>0$ indica maior tempo em Protected (com). Para taxas de processamento, $\Delta<0$ indica redução em Protected (com). A redução percentual da taxa corresponde, portanto, a $-\Delta$. A cor vermelha indica piora de Protected (com) em relação ao baseline (sem), e a verde indica melhora. Para duração, valores menores são melhores. Para taxa, valores maiores são melhores. O sinal do percentual é mantido e a cor representa o sentido de desempenho, não o sinal aritmético.
 
-As unidades observacionais são repetições dentro de uma sessão. Não foram calculados intervalos de efeito entre condições, pois uma sessão por condição não caracteriza a variação entre sessões. Além disso, os processadores diferem. Os percentuais devem ser interpretados como razões entre medições desses ambientes, sem atribuição exclusiva ao Bitdefender.
+As unidades observacionais são repetições dentro de uma sessão. A comparação expressa as razões entre as medianas dos dois ambientes medidos. Os processadores diferem, e há uma sessão por condição.
 
 
 \subsection{Caracterização dos processos do Bitdefender}
 O consumo do agente foi analisado em duas escalas: observações históricas em 7 e 28 de outubro de 2026 e observações durante as execuções concluídas do benchmark em 3 de novembro de 2026. As janelas históricas foram tratadas separadamente da campanha de desempenho. O monitoramento histórico reuniu cinco sessões, com intervalo nominal de dois segundos, totalizando 36,82 minutos efetivamente amostrados.
 
-Nas medições de processamento do agente, 100\% corresponde à ocupação de um processador lógico. A média de utilização foi ponderada pela duração efetiva dos intervalos, e os picos correspondem ao maior intervalo amostrado. Para os componentes durante o benchmark, o uso foi calculado pela diferença do tempo acumulado em modo usuário e sistema entre observações consecutivas do mesmo processo, identificado também pelo instante de criação. Não foram conectados intervalos entre execuções distintas. As janelas abrangem o ciclo de vida das execuções, incluindo preparação e aquecimento, e não apenas a fronteira cronometrada do treinamento.
+Nas medições de processamento do agente, 100\% corresponde à ocupação de um processador lógico. A média de utilização foi ponderada pela duração efetiva dos intervalos, e os picos correspondem ao maior intervalo amostrado. Para os componentes durante o benchmark, o uso foi calculado pela diferença do tempo acumulado em modo usuário e sistema entre observações consecutivas do mesmo processo, identificado também pelo instante de criação. Não foram conectados intervalos entre execuções distintas. As janelas abrangem o ciclo de vida das execuções da campanha, inclusive as associadas à GPU, incluindo preparação e aquecimento. Os indicadores de consumo do agente não constituem um recorte exclusivo dos ensaios em CPU.
 
 A memória residente corresponde às páginas residentes atribuídas aos processos. A memória contabilizada por serviço inclui memória anônima, cache de arquivos e alocações do kernel. As médias de memória são médias das amostras, enquanto as taxas de leitura e gravação foram integradas pela duração dos intervalos. As unidades MiB e GiB correspondem, respectivamente, a $2^{20}$ e $2^{30}$ bytes.
 
@@ -88,7 +85,7 @@ A memória residente corresponde às páginas residentes atribuídas aos process
 \subsection{Inicialização do ambiente}
 A inicialização do PyTorch na \ac{cpu} apresentou mediana de 0,7451 s em baseline (sem) e 1,2106 s em Protected (com), uma diferença de 62,49\%. O primeiro passo de treinamento passou de 0,0235 s para 0,0492 s, correspondendo a 109,81\% de aumento. A importação do mesmo ambiente apresentou diferença menor, de 2,06\%. Essas três medidas representam etapas distintas. A mediana da duração total de uma execução não é obtida pela soma das medianas de suas etapas.
 
-A Tabela~\ref{tab:inicio} também apresenta os casos selecionados do TensorFlow. A diferença da importação na \ac{cpu} foi de 0,27\%, enquanto a inicialização apresentou aumento de 15,71\%. Na \ac{gpu}, a importação apresentou aumento de 15,91\%. A dispersão elevada da inicialização do PyTorch em Protected (com), em relação à sua mediana, recomenda interpretar a diferença como descrição das repetições observadas, sem tratá-la como uma penalidade fixa por inicialização.
+A Tabela~\ref{tab:inicio} também apresenta os casos selecionados do TensorFlow. A diferença da importação na \ac{cpu} foi de 0,27\%, enquanto a inicialização apresentou aumento de 15,71\%. A dispersão elevada da inicialização do PyTorch em Protected (com), em relação à sua mediana, recomenda interpretar a diferença como descrição das repetições observadas, sem tratá-la como uma penalidade fixa por inicialização.
 
 
 \begingroup\small
@@ -101,7 +98,6 @@ A Tabela~\ref{tab:inicio} também apresenta os casos selecionados do TensorFlow.
 \endhead
 \midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
 \bottomrule
-\multicolumn{6}{p{15.6cm}}{\footnotesize $\dagger$ A indicação de \acs{gpu} identifica o dispositivo selecionado. O tempo também depende do hospedeiro, da alimentação dos dados e das condições do acelerador. Verde indica melhor desempenho observado de Protected (com), não aceleração causada pelo Bitdefender.}\\
 \endlastfoot
 Inicialização\newline PyTorch, \acs{cpu} & Importação & s & 1,3794\newline $\pm$ 0,1703 & \textcolor{piora}{1,4079\newline $\pm$ 1,4308} & \textcolor{piora}{+2,06}\\\addlinespace[3pt]
 Inicialização\newline PyTorch, \acs{cpu} & Inicialização & s & 0,7451\newline $\pm$ 0,0182 & \textcolor{piora}{1,2106\newline $\pm$ 1,9162} & \textcolor{piora}{+62,49}\\\addlinespace[3pt]
@@ -109,16 +105,10 @@ Inicialização\newline PyTorch, \acs{cpu} & Primeiro passo & s & 0,0235\newline
 Inicialização\newline TensorFlow, \acs{cpu} & Importação & s & 1,9261\newline $\pm$ 0,2987 & \textcolor{piora}{1,9314\newline $\pm$ 0,0463} & \textcolor{piora}{+0,27}\\\addlinespace[3pt]
 Inicialização\newline TensorFlow, \acs{cpu} & Inicialização & s & 0,0887\newline $\pm$ 0,0241 & \textcolor{piora}{0,1026\newline $\pm$ 0,0024} & \textcolor{piora}{+15,71}\\\addlinespace[3pt]
 Inicialização\newline TensorFlow, \acs{cpu} & Primeiro passo & s & 0,4640\newline $\pm$ 0,0944 & \textcolor{melhora}{0,4052\newline $\pm$ 0,0064} & \textcolor{melhora}{-12,66}\\\addlinespace[3pt]
-Inicialização\newline PyTorch, \acs{gpu}$^{\dagger}$ & Importação & s & 1,5678\newline $\pm$ 0,0422 & \textcolor{melhora}{1,4207\newline $\pm$ 0,0237} & \textcolor{melhora}{-9,38}\\\addlinespace[3pt]
-Inicialização\newline PyTorch, \acs{gpu}$^{\dagger}$ & Inicialização & s & 1,4516\newline $\pm$ 0,2815 & \textcolor{melhora}{1,3549\newline $\pm$ 0,0293} & \textcolor{melhora}{-6,66}\\\addlinespace[3pt]
-Inicialização\newline PyTorch, \acs{gpu}$^{\dagger}$ & Primeiro passo & s & 0,1871\newline $\pm$ 0,0456 & \textcolor{melhora}{0,1834\newline $\pm$ 0,0037} & \textcolor{melhora}{-1,99}\\\addlinespace[3pt]
-Inicialização\newline TensorFlow, \acs{gpu}$^{\dagger}$ & Importação & s & 1,7152\newline $\pm$ 0,3047 & \textcolor{piora}{1,9880\newline $\pm$ 0,0679} & \textcolor{piora}{+15,91}\\\addlinespace[3pt]
-Inicialização\newline TensorFlow, \acs{gpu}$^{\dagger}$ & Inicialização & s & 1,3862\newline $\pm$ 0,1360 & \textcolor{melhora}{1,3220\newline $\pm$ 0,0635} & \textcolor{melhora}{-4,63}\\\addlinespace[3pt]
-Inicialização\newline TensorFlow, \acs{gpu}$^{\dagger}$ & Primeiro passo & s & 1,4342\newline $\pm$ 0,1325 & \textcolor{melhora}{1,1927\newline $\pm$ 0,0411} & \textcolor{melhora}{-16,84}\\\addlinespace[3pt]
 \end{longtable}
 \endgroup
 
-O primeiro passo de treinamento do TensorFlow em \acs{cpu} apresentou redução de 12,66\%. Na \acs{gpu}, a importação do PyTorch apresentou redução de 9,38\%, e o primeiro passo do TensorFlow apresentou redução de 16,84\%. As melhoras e pioras da Tabela~\ref{tab:inicio} correspondem a etapas distintas, preservadas separadamente na análise.
+O primeiro passo de treinamento do TensorFlow em \acs{cpu} apresentou redução de 12,66\%. As melhoras e pioras da Tabela~\ref{tab:inicio} correspondem a etapas distintas, preservadas separadamente na análise.
 
 \subsection{Treinamento e computação em processador}
 Nos dados gerados com PyTorch, a \acs{cnn} apresentou duração de 0,9666 s no baseline (sem) e 1,7060 s em Protected (com), um aumento de 76,48\%. A taxa correspondente passou de 6620,8546 para 3751,5315 amostras/s, uma redução de 43,34\%. O \acs{mlp} e o Transformer apresentaram aumentos de duração de 60,75\% e 62,52\%, respectivamente, acompanhados de reduções de taxa de 37,79\% e 38,47\%.
@@ -128,15 +118,6 @@ A multiplicação de matrizes em PyTorch apresentou duração 89,01\% maior e ta
 Com CIFAR-10, a \acs{cnn} em PyTorch apresentou duração 55,78\% maior em Protected (com), enquanto a ResNet-18 apresentou aumento de 11,79\%. No Transformer de linguagem com WikiText-2 raw-v1, a duração passou de 13,8190 s para 15,5368 s, uma diferença de 12,43\%. No scikit-learn, os aumentos de duração foram de 51,00\% na regressão logística, 20,39\% no boosting por histogramas e 7,62\% na floresta aleatória.
 
 No TensorFlow em \acs{cpu}, também foram observadas melhoras: a duração do \acs{mlp} com dados gerados diminuiu 48,72\%, a da \acs{cnn} diminuiu 52,55\% e a do Transformer de linguagem com WikiText-2 raw-v1 diminuiu 24,31\%. O sentido das diferenças depende, portanto, da carga e do ambiente de execução.
-
-\subsection{Computação acelerada}
-A execução em \acs{gpu} combina operações no acelerador com trabalho do hospedeiro, como despacho das operações e sincronização. O carregamento dos dados foi medido separadamente do treinamento, de modo que a duração tabulada do treinamento não inclui automaticamente toda a leitura do conjunto de dados. Mesmo com dados residentes, a execução mantém etapas no hospedeiro e no acelerador, cujas condições podem alterar o tempo observado. A utilização do mesmo modelo de placa, portanto, não torna os dois ambientes equivalentes.
-
-As linhas identificadas por $\dagger$ nas tabelas correspondem a ensaios com \acs{gpu} selecionada. As melhoras nesses ensaios descrevem o desempenho observado de Protected (com). Elas não demonstram que o Bitdefender acelerou o treinamento nem permitem quantificar qual condição de execução produziu o ganho.
-
-O caso de multiplicação de matrizes em \acs{gpu}, com PyTorch, apresentou aumento de duração de 0,37\% e redução de taxa de 0,37\%. A magnitude pequena dessa diferença deve orientar sua interpretação, sem pressupor significância estatística.
-
-Nos casos acelerados com PyTorch, as durações da \acs{cnn} e da ResNet-18 com CIFAR-10 diminuíram 25,76\% e 26,74\%, respectivamente. No Transformer de linguagem com WikiText-2 raw-v1, a duração diminuiu 40,93\%. Com TensorFlow e CIFAR-10, a \acs{cnn} apresentou redução de duração de 52,23\%. Essas melhoras coexistem com as pioras descritas e estão incluídas na Tabela~\ref{tab:treino}.
 
 \begingroup\small
 \begin{longtable}{@{}L{3.5cm}L{2.1cm}L{1.9cm}L{3cm}L{3cm}L{1.5cm}@{}}
@@ -148,7 +129,6 @@ Nos casos acelerados com PyTorch, as durações da \acs{cnn} e da ResNet-18 com 
 \endhead
 \midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
 \bottomrule
-\multicolumn{6}{p{15.6cm}}{\footnotesize $\dagger$ A indicação de \acs{gpu} identifica o dispositivo selecionado. O tempo também depende do hospedeiro, da alimentação dos dados e das condições do acelerador. Verde indica melhor desempenho observado de Protected (com), não aceleração causada pelo Bitdefender.}\\
 \endlastfoot
 \acs{mlp}\newline PyTorch, \acs{cpu}\newline Dados gerados & Duração & s & 0,1633\newline $\pm$ 0,0387 & \textcolor{piora}{0,2626\newline $\pm$ 0,0149} & \textcolor{piora}{+60,75}\\\addlinespace[3pt]
 \acs{mlp}\newline PyTorch, \acs{cpu}\newline Dados gerados & Taxa & amostras/s & 39180,5208\newline $\pm$ 6918,7577 & \textcolor{piora}{24373,4754\newline $\pm$ 1288,2193} & \textcolor{piora}{-37,79}\\\addlinespace[3pt]
@@ -176,45 +156,19 @@ Matrizes\newline TensorFlow, \acs{cpu}\newline Dados gerados & Taxa & GFLOP/s & 
 \acs{cnn}\newline TensorFlow, \acs{cpu}\newline CIFAR-10 & Taxa & amostras/s & 9130,0905\newline $\pm$ 630,4345 & \textcolor{piora}{8268,4604\newline $\pm$ 81,2079} & \textcolor{piora}{-9,44}\\\addlinespace[3pt]
 Transformer de linguagem\newline TensorFlow, \acs{cpu}\newline WikiText-2 raw-v1 & Duração & s & 8,3546\newline $\pm$ 0,0880 & \textcolor{melhora}{6,3236\newline $\pm$ 0,1254} & \textcolor{melhora}{-24,31}\\\addlinespace[3pt]
 Transformer de linguagem\newline TensorFlow, \acs{cpu}\newline WikiText-2 raw-v1 & Taxa & tokens/s & 12256,6653\newline $\pm$ 130,4069 & \textcolor{melhora}{16193,2743\newline $\pm$ 327,5523} & \textcolor{melhora}{+32,12}\\\addlinespace[3pt]
-\acs{mlp}\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 0,2180\newline $\pm$ 0,0475 & \textcolor{melhora}{0,1555\newline $\pm$ 0,0026} & \textcolor{melhora}{-28,67}\\\addlinespace[3pt]
-\acs{mlp}\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & amostras/s & 29358,8294\newline $\pm$ 4779,0746 & \textcolor{melhora}{41159,1838\newline $\pm$ 667,5296} & \textcolor{melhora}{+40,19}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 0,3523\newline $\pm$ 0,0765 & \textcolor{melhora}{0,2356\newline $\pm$ 0,0004} & \textcolor{melhora}{-33,13}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & amostras/s & 18168,2720\newline $\pm$ 3293,7492 & \textcolor{melhora}{27167,7727\newline $\pm$ 45,3715} & \textcolor{melhora}{+49,53}\\\addlinespace[3pt]
-Transformer\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 1,5087\newline $\pm$ 0,0105 & \textcolor{melhora}{0,8708\newline $\pm$ 0,0244} & \textcolor{melhora}{-42,28}\\\addlinespace[3pt]
-Transformer\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & amostras/s & 4241,9940\newline $\pm$ 29,7704 & \textcolor{melhora}{7349,5100\newline $\pm$ 199,4001} & \textcolor{melhora}{+73,26}\\\addlinespace[3pt]
-Matrizes\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 0,0259\newline $\pm$ $2,85520\times10^{-5}$ & \textcolor{piora}{0,0260\newline $\pm$ 0,0001} & \textcolor{piora}{+0,37}\\\addlinespace[3pt]
-Matrizes\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & GFLOP/s & 16583,8259\newline $\pm$ 18,2549 & \textcolor{piora}{16522,2639\newline $\pm$ 92,7639} & \textcolor{piora}{-0,37}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Duração & s & 1,1433\newline $\pm$ 0,0854 & \textcolor{melhora}{0,8488\newline $\pm$ 0,0213} & \textcolor{melhora}{-25,76}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Taxa & amostras/s & 5597,8910\newline $\pm$ 394,9802 & \textcolor{melhora}{7540,2048\newline $\pm$ 197,4874} & \textcolor{melhora}{+34,70}\\\addlinespace[3pt]
-ResNet-18\newline PyTorch, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Duração & s & 2,8139\newline $\pm$ 0,1328 & \textcolor{melhora}{2,0616\newline $\pm$ 0,0186} & \textcolor{melhora}{-26,74}\\\addlinespace[3pt]
-ResNet-18\newline PyTorch, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Taxa & amostras/s & 2274,4011\newline $\pm$ 115,1220 & \textcolor{melhora}{3104,4484\newline $\pm$ 27,8746} & \textcolor{melhora}{+36,50}\\\addlinespace[3pt]
-Transformer de linguagem\newline PyTorch, \acs{gpu}$^{\dagger}$\newline WikiText-2 raw-v1 & Duração & s & 1,5802\newline $\pm$ 0,0342 & \textcolor{melhora}{0,9334\newline $\pm$ 0,0125} & \textcolor{melhora}{-40,93}\\\addlinespace[3pt]
-Transformer de linguagem\newline PyTorch, \acs{gpu}$^{\dagger}$\newline WikiText-2 raw-v1 & Taxa & tokens/s & 64800,0551\newline $\pm$ 1367,4515 & \textcolor{melhora}{109704,9015\newline $\pm$ 1438,2984} & \textcolor{melhora}{+69,30}\\\addlinespace[3pt]
 Regressão logística\newline scikit-learn, \acs{cpu}\newline Dados gerados & Duração & s & 0,1949\newline $\pm$ 0,0145 & \textcolor{piora}{0,2944\newline $\pm$ 0,1225} & \textcolor{piora}{+51,00}\\\addlinespace[3pt]
 Boosting por histogramas\newline scikit-learn, \acs{cpu}\newline Dados gerados & Duração & s & 0,4501\newline $\pm$ 0,0210 & \textcolor{piora}{0,5419\newline $\pm$ 0,0408} & \textcolor{piora}{+20,39}\\\addlinespace[3pt]
 Floresta aleatória\newline scikit-learn, \acs{cpu}\newline Dados gerados & Duração & s & 4,0307\newline $\pm$ 0,0401 & \textcolor{piora}{4,3377\newline $\pm$ 0,0283} & \textcolor{piora}{+7,62}\\\addlinespace[3pt]
-\acs{mlp}\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 0,4775\newline $\pm$ 0,0401 & \textcolor{melhora}{0,2118\newline $\pm$ 0,0189} & \textcolor{melhora}{-55,65}\\\addlinespace[3pt]
-\acs{mlp}\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & amostras/s & 13403,4292\newline $\pm$ 1284,3200 & \textcolor{melhora}{30222,0731\newline $\pm$ 2364,9431} & \textcolor{melhora}{+125,48}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 0,6857\newline $\pm$ 0,0196 & \textcolor{melhora}{0,3567\newline $\pm$ 0,0067} & \textcolor{melhora}{-47,97}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & amostras/s & 9333,7914\newline $\pm$ 262,8731 & \textcolor{melhora}{17940,5223\newline $\pm$ 345,9178} & \textcolor{melhora}{+92,21}\\\addlinespace[3pt]
-Transformer\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 0,8552\newline $\pm$ 0,0220 & \textcolor{melhora}{0,4475\newline $\pm$ 0,0134} & \textcolor{melhora}{-47,67}\\\addlinespace[3pt]
-Transformer\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & amostras/s & 7483,6020\newline $\pm$ 185,5018 & \textcolor{melhora}{14300,8190\newline $\pm$ 415,2757} & \textcolor{melhora}{+91,10}\\\addlinespace[3pt]
-Matrizes\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Duração & s & 0,0226\newline $\pm$ 0,0001 & \textcolor{melhora}{0,0204\newline $\pm$ 0,0001} & \textcolor{melhora}{-9,71}\\\addlinespace[3pt]
-Matrizes\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Dados gerados & Taxa & GFLOP/s & 19040,1142\newline $\pm$ 44,3522 & \textcolor{melhora}{21087,1813\newline $\pm$ 101,6693} & \textcolor{melhora}{+10,75}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Duração & s & 0,8264\newline $\pm$ 0,0041 & \textcolor{melhora}{0,3948\newline $\pm$ 0,0101} & \textcolor{melhora}{-52,23}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Taxa & amostras/s & 7744,4914\newline $\pm$ 38,4644 & \textcolor{melhora}{16212,1489\newline $\pm$ 417,3499} & \textcolor{melhora}{+109,34}\\\addlinespace[3pt]
-Transformer de linguagem\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline WikiText-2 raw-v1 & Duração & s & 1,0821\newline $\pm$ 0,0307 & \textcolor{melhora}{0,7342\newline $\pm$ 0,0062} & \textcolor{melhora}{-32,15}\\\addlinespace[3pt]
-Transformer de linguagem\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline WikiText-2 raw-v1 & Taxa & tokens/s & 94629,8287\newline $\pm$ 2778,2957 & \textcolor{melhora}{139470,8167\newline $\pm$ 1174,2094} & \textcolor{melhora}{+47,39}\\\addlinespace[3pt]
 \end{longtable}
 \endgroup
 
 \section{Carregamento, checkpoints e operações de arquivos}
 \subsection{Carregamento dos conjuntos de dados}
-O carregamento do CIFAR-10 apresentou maior duração em Protected (com) nos casos de PyTorch. Para a \acs{cnn} em \acs{cpu}, a mediana passou de 0,4426 s para 0,5160 s, correspondendo a 16,57\%. Para a ResNet-18 em \acs{cpu}, a diferença foi de 10,30\%. Nos casos vinculados à \acs{gpu}, os aumentos foram de 7,46\% e 6,97\%, respectivamente, conforme a Tabela~\ref{tab:carga}.
+O carregamento do CIFAR-10 apresentou maior duração em Protected (com) nos casos de PyTorch. Para a \acs{cnn} em \acs{cpu}, a mediana passou de 0,4426 s para 0,5160 s, correspondendo a 16,57\%. Para a ResNet-18 em \acs{cpu}, a diferença foi de 10,30\%. Esses resultados constam da Tabela~\ref{tab:carga}.
 
-Para o TensorFlow, o carregamento do CIFAR-10 apresentou redução de duração de 15,63\% no caso associado à \acs{cpu} e de 34,48\% no caso associado à \acs{gpu}. O sentido oposto ao observado no PyTorch reforça a necessidade de manter as rotinas de carregamento separadas por ambiente.
+Para o TensorFlow em \acs{cpu}, o carregamento do CIFAR-10 apresentou redução de duração de 15,63\%. O sentido oposto ao observado no PyTorch reforça a necessidade de manter as rotinas de carregamento separadas por biblioteca.
 
-A existência de uma \acs{gpu} selecionada não elimina o processamento no hospedeiro necessário para preparar os dados. Esses tempos pertencem à etapa de carregamento e são distintos da duração medida do treinamento. Sua diferença percentual não deve ser transferida diretamente para o tempo de treinamento ou para o desempenho global de uma aplicação.
+Os tempos de carregamento são distintos da duração medida do treinamento. Sua diferença percentual não deve ser transferida diretamente para o tempo de treinamento ou para o desempenho global de uma aplicação.
 
 \begingroup\small
 \begin{longtable}{@{}L{3.5cm}L{2.1cm}L{1.9cm}L{3cm}L{3cm}L{1.5cm}@{}}
@@ -226,14 +180,10 @@ A existência de uma \acs{gpu} selecionada não elimina o processamento no hospe
 \endhead
 \midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
 \bottomrule
-\multicolumn{6}{p{15.6cm}}{\footnotesize $\dagger$ A indicação de \acs{gpu} identifica o dispositivo selecionado. O tempo também depende do hospedeiro, da alimentação dos dados e das condições do acelerador. Verde indica melhor desempenho observado de Protected (com), não aceleração causada pelo Bitdefender.}\\
 \endlastfoot
 \acs{cnn}\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Carregamento & s & 0,4426\newline $\pm$ 0,0033 & \textcolor{piora}{0,5160\newline $\pm$ 0,0593} & \textcolor{piora}{+16,57}\\\addlinespace[3pt]
 ResNet-18\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Carregamento & s & 0,4444\newline $\pm$ 0,0043 & \textcolor{piora}{0,4902\newline $\pm$ 0,0051} & \textcolor{piora}{+10,30}\\\addlinespace[3pt]
 \acs{cnn}\newline TensorFlow, \acs{cpu}\newline CIFAR-10 & Carregamento & s & 1,5214\newline $\pm$ 0,2948 & \textcolor{melhora}{1,2836\newline $\pm$ 0,0491} & \textcolor{melhora}{-15,63}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Carregamento & s & 0,4432\newline $\pm$ 0,0012 & \textcolor{piora}{0,4763\newline $\pm$ 0,0025} & \textcolor{piora}{+7,46}\\\addlinespace[3pt]
-ResNet-18\newline PyTorch, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Carregamento & s & 0,4687\newline $\pm$ 0,1482 & \textcolor{piora}{0,5014\newline $\pm$ 0,0128} & \textcolor{piora}{+6,97}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline CIFAR-10 & Carregamento & s & 2,0978\newline $\pm$ 0,0241 & \textcolor{melhora}{1,3745\newline $\pm$ 0,0178} & \textcolor{melhora}{-34,48}\\\addlinespace[3pt]
 \end{longtable}
 \endgroup
 
@@ -270,9 +220,9 @@ Checkpoint de controle\newline Armazenamento & Taxa & bytes/s & $2,50233\times10
 \endgroup
 
 \subsection{Checkpoints dos modelos}
-Nos checkpoints do PyTorch, a gravação com sincronização persistente apresentou aumento de 59,52\% no caso associado à \acs{cpu}, passando de 0,0224 s para 0,0357 s. No caso associado à \acs{gpu}, o aumento foi de 49,30\%, de 0,0266 s para 0,0397 s. A leitura desses checkpoints apresentou aumentos de 30,77\% e 31,76\%, respectivamente.
+Nos checkpoints do PyTorch em \acs{cpu}, a gravação com sincronização persistente apresentou aumento de 59,52\%, passando de 0,0224 s para 0,0357 s. A leitura desses checkpoints apresentou aumento de 30,77\%.
 
-Na variante sem sincronização persistente, os casos de leitura do PyTorch apresentaram aumentos de 20,43\% em \acs{cpu} e 2,99\% em \acs{gpu}. A gravação nessa variante apresentou reduções de 45,31\% e 35,34\%, respectivamente. No TensorFlow, as variantes correspondentes apresentaram reduções tanto na leitura quanto na gravação, conforme a Tabela~\ref{tab:checkpoints}.
+Na variante sem sincronização persistente, a leitura do PyTorch em \acs{cpu} apresentou aumento de 20,43\% e a gravação apresentou redução de 45,31\%. No TensorFlow em \acs{cpu}, as variantes correspondentes apresentaram reduções tanto na leitura quanto na gravação, conforme a Tabela~\ref{tab:checkpoints}.
 
 A distinção entre variantes é necessária porque uma gravação concluída após a entrega ao sistema operacional e uma gravação sincronizada com o armazenamento representam fronteiras diferentes de conclusão. As diferenças entre elas não devem ser tratadas como repetições de uma única operação.
 
@@ -286,7 +236,6 @@ A distinção entre variantes é necessária porque uma gravação concluída ap
 \endhead
 \midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
 \bottomrule
-\multicolumn{6}{p{15.6cm}}{\footnotesize $\dagger$ A indicação de \acs{gpu} identifica o dispositivo selecionado. O tempo também depende do hospedeiro, da alimentação dos dados e das condições do acelerador. Verde indica melhor desempenho observado de Protected (com), não aceleração causada pelo Bitdefender.}\\
 \endlastfoot
 Checkpoint de modelo\newline PyTorch, \acs{cpu}\newline Sem sincronização persistente & Gravação & s & 0,0202\newline $\pm$ 0,0026 & \textcolor{melhora}{0,0111\newline $\pm$ 0,0007} & \textcolor{melhora}{-45,31}\\\addlinespace[3pt]
 Checkpoint de modelo\newline PyTorch, \acs{cpu}\newline Sem sincronização persistente & Leitura & s & 0,0085\newline $\pm$ 0,0012 & \textcolor{piora}{0,0102\newline $\pm$ 0,0007} & \textcolor{piora}{+20,43}\\\addlinespace[3pt]
@@ -296,14 +245,6 @@ Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Sem sincronização p
 Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Sem sincronização persistente & Leitura & s & 0,0198\newline $\pm$ 0,0006 & \textcolor{melhora}{0,0150\newline $\pm$ 0,0009} & \textcolor{melhora}{-24,22}\\\addlinespace[3pt]
 Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Persistente & Gravação & s & 0,0878\newline $\pm$ 0,0185 & \textcolor{melhora}{0,0726\newline $\pm$ 0,0232} & \textcolor{melhora}{-17,32}\\\addlinespace[3pt]
 Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Persistente & Leitura & s & 0,0220\newline $\pm$ 0,0056 & \textcolor{melhora}{0,0153\newline $\pm$ 0,0012} & \textcolor{melhora}{-30,49}\\\addlinespace[3pt]
-Checkpoint de modelo\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Sem sincronização persistente & Gravação & s & 0,0216\newline $\pm$ 0,0005 & \textcolor{melhora}{0,0140\newline $\pm$ 0,0044} & \textcolor{melhora}{-35,34}\\\addlinespace[3pt]
-Checkpoint de modelo\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Sem sincronização persistente & Leitura & s & 0,0079\newline $\pm$ 0,0004 & \textcolor{piora}{0,0081\newline $\pm$ 0,0018} & \textcolor{piora}{+2,99}\\\addlinespace[3pt]
-Checkpoint de modelo\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Persistente & Gravação & s & 0,0266\newline $\pm$ 0,0001 & \textcolor{piora}{0,0397\newline $\pm$ 0,0100} & \textcolor{piora}{+49,30}\\\addlinespace[3pt]
-Checkpoint de modelo\newline PyTorch, \acs{gpu}$^{\dagger}$\newline Persistente & Leitura & s & 0,0074\newline $\pm$ 0,0029 & \textcolor{piora}{0,0097\newline $\pm$ 0,0017} & \textcolor{piora}{+31,76}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Sem sincronização persistente & Gravação & s & 0,1399\newline $\pm$ 0,0012 & \textcolor{melhora}{0,0674\newline $\pm$ 0,0005} & \textcolor{melhora}{-51,83}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Sem sincronização persistente & Leitura & s & 0,0326\newline $\pm$ 0,0021 & \textcolor{melhora}{0,0197\newline $\pm$ 0,0002} & \textcolor{melhora}{-39,66}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Persistente & Gravação & s & 0,1414\newline $\pm$ 0,0026 & \textcolor{melhora}{0,1056\newline $\pm$ 0,0064} & \textcolor{melhora}{-25,30}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{gpu}$^{\dagger}$\newline Persistente & Leitura & s & 0,0339\newline $\pm$ 0,0013 & \textcolor{melhora}{0,0193\newline $\pm$ 0,0012} & \textcolor{melhora}{-43,22}\\\addlinespace[3pt]
 \end{longtable}
 \endgroup
 \section{Discussão dos resultados e consumo do Bitdefender}
@@ -312,7 +253,7 @@ Os resultados desfavoráveis à máquina com Bitdefender concentram a análise e
 
 O aumento de duração e a redução de taxa descrevem a mesma mudança sob perspectivas diferentes quando se referem ao mesmo trabalho fixo. Não constituem duas evidências independentes de penalidade. Tampouco é adequado calcular a média dos percentuais de treinamento, importação e armazenamento como uma redução geral de desempenho, pois essas medidas representam operações, unidades e fronteiras de cronometragem diferentes.
 
-A dispersão distingue situações com medianas próximas e situações com repetições mais variáveis. O desvio-padrão elevado na inicialização do PyTorch em Protected (com) ilustra por que o percentual isolado não descreve toda a experiência de execução. Por outro lado, diferenças de pequena magnitude, como a observada na multiplicação de matrizes em \acs{gpu}, devem permanecer proporcionais à sua escala na interpretação.
+A dispersão distingue situações com medianas próximas e situações com repetições mais variáveis. O desvio-padrão elevado na inicialização do PyTorch em Protected (com) ilustra por que o percentual isolado não descreve toda a experiência de execução.
 
 As perdas observadas em pequenos arquivos, remoção de metadados e checkpoints de controle são especialmente relevantes para rotinas com muitos acessos ou gravações frequentes. Nesses casos, Protected (com) apresentou aumentos de duração de 188,63\%, 148,00\% e 200,85\%, respectivamente. No PyTorch em \acs{cpu}, o aumento de 76,48\% na duração da \acs{cnn} com dados gerados evidencia outro ponto de desempenho inferior. Esses resultados delimitam as tarefas de pior desempenho do ambiente protegido e orientam a avaliação crítica de seu custo operacional.
 
@@ -321,12 +262,12 @@ O consumo medido dos processos fornece evidência direta de demanda de recursos 
 \subsection{Mecanismos plausíveis e alcance da interpretação}
 A inspeção de operações de entrada e saída e a competição por tempo de processamento constituem mecanismos plausíveis para uma solução de segurança acrescentar trabalho à execução de uma aplicação. A manipulação frequente de objetos pequenos e a persistência de checkpoints são pontos em que uma análise adicional poderia investigar essa participação. Os resultados observados indicam tarefas de interesse para tal investigação, sem medir diretamente quanto do tempo foi consumido pela proteção.
 
-A máquina Protected (com) e a máquina baseline (sem) diferem em geração de processador e número de núcleos. Essas diferenças afetam especialmente a interpretação dos ensaios em \acs{cpu} e podem também influenciar a alimentação da \acs{gpu} e o armazenamento. A presença de componentes do Bitdefender em Protected (com) é uma observação distinta da confirmação do estado de todos os mecanismos de proteção. Assim, a análise sustenta a descrição de desempenho inferior nos casos selecionados dessa máquina, sem decompor a diferença entre ambientes em contribuições específicas de segurança e de plataforma.
+A máquina Protected (com) e a máquina baseline (sem) diferem em geração de processador e número de núcleos. Essas diferenças também podem influenciar os ensaios em \acs{cpu} e as operações de armazenamento. A presença dos componentes do Bitdefender e seu consumo de recursos foram observados diretamente durante a campanha.
 
 \subsection{Implicações para rotinas de trabalho e telecomunicações}
 Para uma rotina com múltiplas inicializações, recargas de dados ou checkpoints frequentes, os resultados selecionados apontam etapas que merecem medição específica. Uma diferença pequena por operação pode ter relevância quando a operação é repetida, mas a projeção para uma rotina completa exige conhecer sua frequência e seu encadeamento. Os percentuais apresentados não substituem essa avaliação.
 
-Em aplicações de \ac{sdr} e telecomunicações, competição por \acs{cpu} e atrasos em leitura ou gravação são hipóteses pertinentes quando o processamento e a entrada e saída compartilham recursos. As medições aqui analisadas pertencem a aprendizado de máquina e armazenamento. Portanto, sua interpretação para telecomunicações é qualitativa e não fornece valores de latência de rádio, perda de amostras ou vazão de rede.
+Em aplicações de \ac{sdr} e telecomunicações, a concorrência por \acs{cpu} e os atrasos repetidos de leitura ou gravação podem comprometer prazos de processamento quando essas operações compartilham recursos. No treinamento de modelos de aprendizado de máquina, os aumentos medidos em tarefas de \acs{cpu}, inicialização e armazenamento podem ampliar o tempo total da rotina. Na inferência, a concorrência por \acs{cpu} e as operações de entrada e saída podem aumentar a latência sob as mesmas condições. Essas implicações descrevem riscos operacionais das diferenças observadas, sem quantificar um resultado de SDR ou inferência.
 
 
 \subsection{Consumo dos processos do Bitdefender}
@@ -414,7 +355,7 @@ Nas observações contemporâneas do benchmark, os contadores de entrada e saíd
 \section{Conclusão}
 Este relatório caracterizou diferenças de desempenho entre baseline (sem Bitdefender) e Protected (com Bitdefender), contemplando pioras e melhoras nas tarefas analisadas. A contribuição da análise está em separar inicialização, computação, carregamento e persistência e caracterizar o consumo dos componentes do Bitdefender, apresentando valores absolutos e dispersão em conjunto com as diferenças relativas.
 
-Entre os resultados selecionados, a manipulação de pequenos arquivos apresentou aumento de duração de 188,63\%, a remoção de metadados apresentou 148,00\% e o checkpoint de controle apresentou 200,85\%. No treinamento da \acs{cnn} em \acs{cpu} com PyTorch e dados gerados, a duração aumentou 76,48\%. Esses resultados destacam as tarefas em que Protected (com) apresentou maior tempo de execução. Também ocorreram melhoras, como a redução de duração de 52,23\% na \acs{cnn} em \acs{gpu} com TensorFlow e CIFAR-10. Durante as execuções concluídas, o agente utilizou em média o equivalente a 1,42 processador lógico, com predominância do componente ctc no tempo de processamento observado.
+Entre os resultados selecionados, a manipulação de pequenos arquivos apresentou aumento de duração de 188,63\%, a remoção de metadados apresentou 148,00\% e o checkpoint de controle apresentou 200,85\%. No treinamento da \acs{cnn} em \acs{cpu} com PyTorch e dados gerados, a duração aumentou 76,48\%. Esses resultados destacam as tarefas em que Protected (com) apresentou maior tempo de execução. Também ocorreram melhoras em CPU, como a redução de duração de 52,55\% na \acs{cnn} com TensorFlow e dados gerados. Durante as execuções concluídas, o agente utilizou em média o equivalente a 1,42 processador lógico, com predominância do componente ctc no tempo de processamento observado.
 
-A implicação prática é que a avaliação de uma estação de trabalho deve considerar tanto o cálculo numérico quanto as operações que iniciam, alimentam e preservam o processamento.
+A implicação prática é que os aumentos medidos em \acs{cpu} e armazenamento podem comprometer rotinas de SDR com prazos estritos e ampliar o tempo de treinamento ou a latência de inferência quando essas etapas compartilham recursos. A avaliação de uma estação de trabalho deve considerar tanto o cálculo numérico quanto as operações que iniciam, alimentam e preservam o processamento.
 \end{document}
