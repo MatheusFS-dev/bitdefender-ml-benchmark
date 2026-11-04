@@ -31,7 +31,7 @@ A presença de uma solução de segurança constitui uma possível fonte de comp
 
 Este relatório apresenta uma comparação descritiva entre baseline (sem Bitdefender) e Protected (com Bitdefender). São examinados inicialização, treinamento, computação matricial, carregamento de dados, operações de armazenamento, checkpoints de modelos e consumo dos componentes do Bitdefender. As tabelas incluem as métricas temporais e de taxa de processamento disponíveis nas duas condições, com resultados favoráveis e desfavoráveis à condição Protected (com).
 
-O objetivo é quantificar essas diferenças por tarefa e discutir seu significado operacional. A análise mantém as unidades próprias de cada ensaio e distingue a variação relativa entre as medianas de uma estimativa causal do efeito do Bitdefender.
+O objetivo é quantificar as diferenças por tarefa e discutir seu significado operacional, mantendo as unidades próprias de cada ensaio.
 
 \section{Metodologia e condições experimentais}
 \subsection{Ambientes de execução}
@@ -408,13 +408,13 @@ A memória contabilizada média dos três serviços foi de 8,79 GiB, enquanto a 
 
 A atividade histórica acumulada foi de 76,55 MiB de leitura e 16,38 MiB de gravação. Os maiores intervalos de taxa apresentaram 6675,09 KiB/s de leitura e 403,61 KiB/s de gravação. A janela de 28 de outubro iniciada às 15h38 concentrou 76,51 MiB das leituras observadas. Esses volumes representam transferências contabilizadas nos serviços, sem identificar quais acessos de aplicações foram inspecionados. Leituras atendidas pelo cache podem ocorrer sem novas leituras físicas.
 
-Nas observações contemporâneas do benchmark, os contadores de entrada e saída por processo do agente estavam indisponíveis. Assim, a atividade histórica de disco não foi transferida para a campanha de 3 de novembro, e a ausência de contadores por processo não foi tratada como consumo nulo. A combinação das duas escalas sustenta a identificação de demanda de processamento e memória dos componentes, preservando a distinção entre consumo do agente e impacto causal sobre cada tarefa.
+Nas observações contemporâneas do benchmark, os contadores de entrada e saída por processo do agente estavam indisponíveis. Assim, a atividade histórica de disco não foi transferida para a campanha de 3 de novembro, e a ausência de contadores por processo não foi tratada como consumo nulo. A combinação das duas escalas caracteriza a demanda de processamento e memória dos componentes.
 
 \clearpage
 \section{Conclusão}
 Este relatório caracterizou diferenças de desempenho entre baseline (sem Bitdefender) e Protected (com Bitdefender), contemplando pioras e melhoras nas tarefas analisadas. A contribuição da análise está em separar inicialização, computação, carregamento e persistência e caracterizar o consumo dos componentes do Bitdefender, apresentando valores absolutos e dispersão em conjunto com as diferenças relativas.
 
-Entre os resultados selecionados, a manipulação de pequenos arquivos apresentou aumento de duração de 188,63\%, a remoção de metadados apresentou 148,00\% e o checkpoint de controle apresentou 200,85\%. No treinamento da \acs{cnn} em \acs{cpu} com PyTorch e dados gerados, a duração aumentou 76,48\%. Esses valores delimitam pontos desfavoráveis das execuções observadas. Também ocorreram melhoras, como a redução de duração de 52,23\% na \acs{cnn} em \acs{gpu} com TensorFlow e CIFAR-10. Durante as execuções concluídas, o agente utilizou em média o equivalente a 1,42 processador lógico, com predominância do componente ctc no tempo de processamento observado.
+Entre os resultados selecionados, a manipulação de pequenos arquivos apresentou aumento de duração de 188,63\%, a remoção de metadados apresentou 148,00\% e o checkpoint de controle apresentou 200,85\%. No treinamento da \acs{cnn} em \acs{cpu} com PyTorch e dados gerados, a duração aumentou 76,48\%. Esses resultados destacam as tarefas em que Protected (com) apresentou maior tempo de execução. Também ocorreram melhoras, como a redução de duração de 52,23\% na \acs{cnn} em \acs{gpu} com TensorFlow e CIFAR-10. Durante as execuções concluídas, o agente utilizou em média o equivalente a 1,42 processador lógico, com predominância do componente ctc no tempo de processamento observado.
 
-A implicação prática é que a avaliação de uma estação de trabalho deve considerar tanto o cálculo numérico quanto as operações que iniciam, alimentam e preservam o processamento. Como as condições foram executadas em máquinas diferentes, a conclusão descreve o comportamento observado entre ambientes. Uma avaliação do efeito específico do Bitdefender requer repetir as mesmas cargas na mesma plataforma, com condições de armazenamento mantidas constantes, estado de proteção verificado e múltiplas sessões independentes por condição.
+A implicação prática é que a avaliação de uma estação de trabalho deve considerar tanto o cálculo numérico quanto as operações que iniciam, alimentam e preservam o processamento.
 \end{document}
