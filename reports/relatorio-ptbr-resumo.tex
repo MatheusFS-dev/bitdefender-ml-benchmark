@@ -3,44 +3,31 @@
 \usepackage[utf8]{inputenc}
 \usepackage[brazil]{babel}
 \usepackage{lmodern}
-\usepackage[margin=2.3cm]{geometry}
-\usepackage{microtype,booktabs,array,indentfirst}
-\usepackage[hidelinks]{hyperref}
+\usepackage[margin=2cm]{geometry}
+\usepackage{microtype,booktabs,longtable,array,amsmath,acro,indentfirst,float}
 \setlength{\parindent}{0.5cm}
-\setlength{\parskip}{0pt}
-\title{Resumo da caracterização de desempenho com Bitdefender}
+\usepackage[hidelinks]{hyperref}
+\DeclareAcronym{cpu}{short=CPU,long=unidade central de processamento}
+\DeclareAcronym{mlp}{short=MLP,long=perceptron multicamadas}
+\DeclareAcronym{cnn}{short=CNN,long=rede neural convolucional}
+\DeclareAcronym{sdr}{short=SDR,long=rádio definido por software}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.18}
+\setlength{\emergencystretch}{2em}
+\linespread{0.98}
+\title{Impactos de desempenho em inteligência artificial e rádio:\\ comparação entre ambientes com e sem Bitdefender}
 \author{}
 \date{}
-\begin{document}
-\maketitle
+\begin{document}\maketitle
+As permissões disponíveis permitiram comparar dois computadores distintos. Os resultados são descritivos dos ambientes, com processadores, unidades e sistemas de arquivos diferentes.
 
-\section*{Objetivo e recorte}
-O relatório completo compara uma máquina baseline, sem Bitdefender, e uma máquina Protected, com componentes do Bitdefender observados. Este resumo considera treinamento e inicialização em CPU, carregamento de dados, operações de armazenamento e checkpoints de modelos.
+O Bitdefender utilizou em média 1,96 processador lógico, com pico amostrado de 6,17, durante a nova campanha. A memória residente agregada média foi de 3,20 GiB. O componente ctc concentrou 72,55\% do tempo de CPU observado do agente.
 
-\section*{Método}
-Foi analisada uma sessão por condição, com três observações concluídas por métrica. O relatório apresenta medianas, desvios-padrão amostrais e diferenças percentuais entre as medianas. Os processadores das máquinas são diferentes: Intel Xeon Silver 4316 no baseline e Intel Xeon Gold 5220 em Protected.
+Na rede convolucional PyTorch em CPU com dados gerados, a duração passou de 0,9666 s para 1,8065 s, aumento de 86,89\%. Na carga correspondente TensorFlow, houve redução de 47,51\%. Nas 1024 gravações e 1024 leituras de pequenos arquivos, a duração passou de 40,67 ms para 481,62 ms. Cada resultado reúne três repetições na mesma sessão.
 
-\section*{Resultados desfavoráveis à condição Protected}
-\begin{center}
-\small
-\begin{tabular}{@{}p{8.6cm}r@{}}
-\toprule
-Operação & Variação da duração em Protected \\
-\midrule
-Checkpoint de controle de armazenamento & +200,85\% \\
-Manipulação de pequenos arquivos & +188,63\% \\
-Remoção de metadados & +148,00\% \\
-Leituras aleatórias & +96,40\% \\
-Treinamento de CNN, PyTorch, CPU, dados gerados & +76,48\% \\
-Inicialização do PyTorch em CPU & +62,49\% \\
-\bottomrule
-\end{tabular}
-\end{center}
+Um atraso ilustrativo de 1 ms por lote, repetido em 437500 lotes e 100 épocas, soma 12,15 horas. No rádio a 8 milhões de amostras/s, 1 ms corresponde a 8000 amostras. O primeiro caso explica acumulação de custo e o segundo explica orçamento de tempo. Ambos são cenários hipotéticos para explicar as ordens de grandeza.
 
-Nos checkpoints de modelo em CPU, a gravação persistente do PyTorch teve aumento de 59,52\% e a leitura teve aumento de 30,77\%. O controle de checkpoint da tabela é uma operação de armazenamento distinta da serialização de um modelo.
+Os resultados comparam medições de 3 de novembro de 2026 no ambiente sem Bitdefender e de 5 de novembro no ambiente com Bitdefender.
 
-\section*{Consumo do agente e interpretação}
-Durante as execuções concluídas da campanha, os componentes do Bitdefender utilizaram em média 142,38\% de um processador lógico, aproximadamente 1,42 processador lógico. O componente ctc concentrou 77,14\% do tempo de processamento do agente. A soma média da memória residente foi de 2,15 GiB. Essas janelas de monitoramento incluem ensaios associados à GPU e não representam somente as tarefas em CPU.
-
-Os maiores aumentos relativos ocorreram em operações curtas de armazenamento. Em rotinas de rádio definido por software (SDR), atrasos repetidos nessas operações e a concorrência por CPU podem comprometer o atendimento de prazos de processamento. Em treinamento de modelos de aprendizado de máquina, os aumentos medidos de inicialização, carregamento e duração de tarefas em CPU podem ampliar o tempo da rotina. Na inferência, a mesma concorrência por CPU pode afetar a latência quando essas etapas compartilham recursos. O relatório completo contém as tabelas de todas as métricas selecionadas e a dispersão das três observações.
 \end{document}

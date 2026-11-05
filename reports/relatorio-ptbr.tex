@@ -4,9 +4,7 @@
 \usepackage[brazil]{babel}
 \usepackage{lmodern}
 \usepackage[margin=2cm]{geometry}
-\usepackage{microtype,booktabs,longtable,array,amsmath,acro,indentfirst,xcolor}
-\definecolor{piora}{RGB}{180,25,25}
-\definecolor{melhora}{RGB}{0,115,55}
+\usepackage{microtype,booktabs,longtable,array,amsmath,acro,indentfirst,float}
 \setlength{\parindent}{0.5cm}
 \usepackage[hidelinks]{hyperref}
 \DeclareAcronym{cpu}{short=CPU,long=unidade central de processamento}
@@ -18,344 +16,113 @@
 \renewcommand{\arraystretch}{1.18}
 \setlength{\emergencystretch}{2em}
 \linespread{0.98}
-\title{Caracterização de desempenho em aprendizado de máquina e operações de armazenamento:\\comparação entre baseline (sem) e Protected (com Bitdefender)}
+\title{Impactos de desempenho em inteligência artificial e rádio:\\ comparação entre ambientes com e sem Bitdefender}
 \author{}
 \date{}
 \begin{document}
 \maketitle
-\section{Introdução e objetivo}
-O tempo de execução de uma aplicação de aprendizado de máquina depende tanto do processamento numérico quanto das etapas que fornecem dados e preservam o estado do modelo. A inicialização do ambiente, o carregamento dos conjuntos de dados e a gravação de checkpoints podem acrescentar tempo a uma rotina. Avaliar essas etapas separadamente permite localizar diferenças que uma única medida de duração total ocultaria.
+\section{Objetivo e limites da comparação}
+Este relatório compara o desempenho de aplicações de inteligência artificial e operações de arquivos em dois computadores, um declarado sem Bitdefender (baseline) e outro com o produto em execução (Protected). As permissões disponíveis impediram testar o mesmo computador com a proteção ativada e desativada. Por isso, os resultados descrevem a diferença entre os ambientes e não isolam a contribuição exclusiva do Bitdefender. Os processadores, as unidades de armazenamento e os sistemas de arquivos também diferem, conforme a Tabela~\ref{tab:ambientes}.
 
-A presença de uma solução de segurança constitui uma possível fonte de competição por recursos e de trabalho adicional nas operações de entrada e saída. Essa possibilidade motiva a análise de uma máquina com Bitdefender em relação a uma máquina declarada sem o produto. O problema experimental consiste em distinguir as diferenças observadas entre ambientes de uma contribuição específica do mecanismo de proteção.
+Mesmo com essa limitação, observa-se uma tendência de maior duração em várias cargas PyTorch e operações de arquivos, acompanhada de consumo mensurável de CPU pelos componentes do Bitdefender. Também ocorreram melhoras em TensorFlow. A presença dos componentes confirma sua execução, embora a consulta do estado completo da proteção não tenha sido conclusiva.
 
-Este relatório apresenta uma comparação descritiva entre baseline (sem Bitdefender) e Protected (com Bitdefender). São examinados inicialização, treinamento e computação matricial em CPU, carregamento de dados, operações de armazenamento, checkpoints de modelos e consumo dos componentes do Bitdefender. As tabelas incluem as métricas temporais e de taxa de processamento disponíveis nas duas condições, com resultados favoráveis e desfavoráveis à condição Protected (com).
-
-O objetivo é quantificar as diferenças por tarefa e discutir seu significado operacional, mantendo as unidades próprias de cada ensaio.
-
-\section{Metodologia e condições experimentais}
-\subsection{Ambientes de execução}
-Foram consideradas duas sessões de execução, uma por condição: baseline (sem Bitdefender) e Protected (com Bitdefender). A caracterização dos ambientes é apresentada na Tabela~\ref{tab:ambientes}.
-
-\begin{table}[htbp]
-\centering\small
-\caption{Características dos ambientes de execução. Ambas as máquinas possuem 64 GB de memória instalada.}\label{tab:ambientes}
-\begin{tabular}{L{3.4cm}L{5.8cm}L{5.8cm}}
-\toprule Característica & Condição baseline (sem) & Condição Protected (com) \\\midrule
-Processador & Intel Xeon Silver 4316 & Intel Xeon Gold 5220 \\
-Memória instalada & 64 GB & 64 GB \\
+\begin{table}[H]\centering\small
+\caption{Características dos computadores comparados.}\label{tab:ambientes}
+\begin{tabular}{L{2.5cm}L{6cm}L{6cm}}\toprule & Baseline (sem) & Protected (com) \\ \midrule
+Processador & Xeon Silver 4316, 20 núcleos / 40 threads & Xeon Gold 5220, 18 núcleos / 36 threads \\
+Frequências & 2,30 GHz base / até 3,40 GHz turbo & 2,20 GHz base / até 3,90 GHz turbo \\
+Memória & 64 GB DDR4, 2 módulos de 32 GB, 2666 MT/s & 64 GB DDR4, 4 módulos de 16 GB, 2666 MT/s configurados \\
+Unidade de dados & Samsung 980 PRO, 1 TB & LITEON CA5-8D512, 512 GB \\
+Leitura sequencial & Até 7000 MB/s & Até 3300 MB/s \\
+Gravação sequencial & Até 5000 MB/s & Até 2100 MB/s \\
 Sistema operacional & Linux, Ubuntu & Linux, Ubuntu \\
-Python do controlador & 3.13.0 & 3.12.3 \\
-PyTorch / torchvision & 2.14.1 / 0.29.1 & 2.14.1 / 0.29.1 \\
-TensorFlow & 2.21.0 & 2.21.0 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Foram observados componentes do Bitdefender em Protected (com) e nenhum componente correspondente em baseline (sem) durante a caracterização inicial. A consulta do estado de proteção permaneceu indeterminada nos dois ambientes. A identificação das condições segue, assim, a declaração experimental e a presença observada dos componentes, sem equivaler à verificação integral da política de proteção.
-
-\subsection{Cargas e procedimento}
-As cargas abrangeram \ac{mlp}, \ac{cnn}, Transformer, ResNet-18, multiplicação de matrizes e estimadores do scikit-learn. Foram empregados dados gerados, CIFAR-10 e WikiText-2 na variante raw-v1. As identidades de conteúdo registradas para os conjuntos públicos coincidiram entre as condições, assim como os parâmetros das cargas correspondentes e os metadados de execução dos resultados selecionados.
-
-Os ensaios selecionados de treinamento em PyTorch e TensorFlow utilizaram 200 passos medidos, precedidos por cinco passos de aquecimento, em precisão de ponto flutuante de 32 bits. O tamanho de lote foi 32 nos casos selecionados de dados gerados e CIFAR-10, e 16 no modelo de linguagem com WikiText-2 raw-v1. A semente fixada foi 1234. Esses parâmetros definem trabalho fixo, de modo que as diferenças de tempo não correspondem a critérios diferentes de parada por convergência.
-
-Os tempos de treinamento foram delimitados após a preparação dos dados e separados das medidas de carregamento. As rotinas de inicialização distinguiram importação do ambiente, inicialização e primeiro passo de treinamento. As operações de armazenamento incluíram leituras aleatórias, manipulação de pequenos arquivos, remoção de metadados e uma operação de controle de checkpoint. As rotinas de checkpoint de modelos distinguiram gravação com e sem sincronização persistente e preservaram o estado do modelo e do otimizador.
-
-Cada métrica tabulada reúne três observações concluídas em cada condição. Tentativas com falha foram excluídas, assim como registros com aviso ou contaminação. As duas sessões parciais adicionais da máquina baseline (sem) não foram agregadas à sessão utilizada, preservando uma sessão por condição. A análise apresenta os pares de métricas temporais e de taxa de processamento disponíveis em ambas as condições, sem agregar grandezas de unidades diferentes em uma pontuação global.
-
-\subsection{Estatísticas e interpretação}
-Para cada tarefa, são apresentadas a mediana e o desvio-padrão amostral das três repetições. O desvio-padrão caracteriza a dispersão dos valores individuais, não a incerteza de um efeito entre máquinas. A notação mediana $\pm$ desvio-padrão nas tabelas não designa um intervalo de confiança.
-
-A variação descritiva foi calculada por
-\begin{equation}
-\Delta=100\left(\frac{m_{\mathrm{Protected}}}{m_{\mathrm{baseline}}}-1\right),
-\end{equation}
-\par\indent em que $m_{\mathrm{baseline}}$ e $m_{\mathrm{Protected}}$ são as medianas da métrica nas respectivas condições. Para durações, $\Delta>0$ indica maior tempo em Protected (com). Para taxas de processamento, $\Delta<0$ indica redução em Protected (com). A redução percentual da taxa corresponde, portanto, a $-\Delta$. A cor vermelha indica piora de Protected (com) em relação ao baseline (sem), e a verde indica melhora. Para duração, valores menores são melhores. Para taxa, valores maiores são melhores. O sinal do percentual é mantido e a cor representa o sentido de desempenho, não o sinal aritmético.
-
-As unidades observacionais são repetições dentro de uma sessão. A comparação expressa as razões entre as medianas dos dois ambientes medidos. Os processadores diferem, e há uma sessão por condição.
-
-
-\subsection{Caracterização dos processos do Bitdefender}
-O consumo do agente foi analisado em duas escalas: observações históricas em 7 e 28 de outubro de 2026 e observações durante as execuções concluídas do benchmark em 3 de novembro de 2026. As janelas históricas foram tratadas separadamente da campanha de desempenho. O monitoramento histórico reuniu cinco sessões, com intervalo nominal de dois segundos, totalizando 36,82 minutos efetivamente amostrados.
-
-Nas medições de processamento do agente, 100\% corresponde à ocupação de um processador lógico. A média de utilização foi ponderada pela duração efetiva dos intervalos, e os picos correspondem ao maior intervalo amostrado. Para os componentes durante o benchmark, o uso foi calculado pela diferença do tempo acumulado em modo usuário e sistema entre observações consecutivas do mesmo processo, identificado também pelo instante de criação. Não foram conectados intervalos entre execuções distintas. As janelas abrangem o ciclo de vida das execuções da campanha, inclusive as associadas à GPU, incluindo preparação e aquecimento. Os indicadores de consumo do agente não constituem um recorte exclusivo dos ensaios em CPU.
-
-A memória residente corresponde às páginas residentes atribuídas aos processos. A memória contabilizada por serviço inclui memória anônima, cache de arquivos e alocações do kernel. As médias de memória são médias das amostras, enquanto as taxas de leitura e gravação foram integradas pela duração dos intervalos. As unidades MiB e GiB correspondem, respectivamente, a $2^{20}$ e $2^{30}$ bytes.
-
-\section{Resultados de treinamento e computação}
-\subsection{Inicialização do ambiente}
-A inicialização do PyTorch na \ac{cpu} apresentou mediana de 0,7451 s em baseline (sem) e 1,2106 s em Protected (com), uma diferença de 62,49\%. O primeiro passo de treinamento passou de 0,0235 s para 0,0492 s, correspondendo a 109,81\% de aumento. A importação do mesmo ambiente apresentou diferença menor, de 2,06\%. Essas três medidas representam etapas distintas. A mediana da duração total de uma execução não é obtida pela soma das medianas de suas etapas.
-
-A Tabela~\ref{tab:inicio} também apresenta os casos selecionados do TensorFlow. A diferença da importação na \ac{cpu} foi de 0,27\%, enquanto a inicialização apresentou aumento de 15,71\%. A dispersão elevada da inicialização do PyTorch em Protected (com), em relação à sua mediana, recomenda interpretar a diferença como descrição das repetições observadas, sem tratá-la como uma penalidade fixa por inicialização.
-
-
-\begingroup\small
-\begin{longtable}{@{}L{3.5cm}L{2.1cm}L{1.9cm}L{3cm}L{3cm}L{1.5cm}@{}}
-\caption{Inicialização dos ambientes. Três observações por métrica e condição. Vermelho indica piora e verde indica melhora em relação ao baseline (sem).}\label{tab:inicio}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endfirsthead
-\multicolumn{6}{l}{\tablename~\thetable{} -- continuação}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endhead
-\midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
-\bottomrule
-\endlastfoot
-Inicialização\newline PyTorch, \acs{cpu} & Importação & s & 1,3794\newline $\pm$ 0,1703 & \textcolor{piora}{1,4079\newline $\pm$ 1,4308} & \textcolor{piora}{+2,06}\\\addlinespace[3pt]
-Inicialização\newline PyTorch, \acs{cpu} & Inicialização & s & 0,7451\newline $\pm$ 0,0182 & \textcolor{piora}{1,2106\newline $\pm$ 1,9162} & \textcolor{piora}{+62,49}\\\addlinespace[3pt]
-Inicialização\newline PyTorch, \acs{cpu} & Primeiro passo & s & 0,0235\newline $\pm$ 0,0009 & \textcolor{piora}{0,0492\newline $\pm$ 0,0037} & \textcolor{piora}{+109,81}\\\addlinespace[3pt]
-Inicialização\newline TensorFlow, \acs{cpu} & Importação & s & 1,9261\newline $\pm$ 0,2987 & \textcolor{piora}{1,9314\newline $\pm$ 0,0463} & \textcolor{piora}{+0,27}\\\addlinespace[3pt]
-Inicialização\newline TensorFlow, \acs{cpu} & Inicialização & s & 0,0887\newline $\pm$ 0,0241 & \textcolor{piora}{0,1026\newline $\pm$ 0,0024} & \textcolor{piora}{+15,71}\\\addlinespace[3pt]
-Inicialização\newline TensorFlow, \acs{cpu} & Primeiro passo & s & 0,4640\newline $\pm$ 0,0944 & \textcolor{melhora}{0,4052\newline $\pm$ 0,0064} & \textcolor{melhora}{-12,66}\\\addlinespace[3pt]
-\end{longtable}
-\endgroup
-
-O primeiro passo de treinamento do TensorFlow em \acs{cpu} apresentou redução de 12,66\%. As melhoras e pioras da Tabela~\ref{tab:inicio} correspondem a etapas distintas, preservadas separadamente na análise.
-
-\subsection{Treinamento e computação em processador}
-Nos dados gerados com PyTorch, a \acs{cnn} apresentou duração de 0,9666 s no baseline (sem) e 1,7060 s em Protected (com), um aumento de 76,48\%. A taxa correspondente passou de 6620,8546 para 3751,5315 amostras/s, uma redução de 43,34\%. O \acs{mlp} e o Transformer apresentaram aumentos de duração de 60,75\% e 62,52\%, respectivamente, acompanhados de reduções de taxa de 37,79\% e 38,47\%.
-
-A multiplicação de matrizes em PyTorch apresentou duração 89,01\% maior e taxa 47,09\% menor em Protected (com). No TensorFlow, a mesma categoria de operação apresentou duração 45,83\% maior e taxa 31,43\% menor. A Tabela~\ref{tab:treino} apresenta os resultados por carga, sem estabelecer uma classificação geral entre bibliotecas.
-
-Com CIFAR-10, a \acs{cnn} em PyTorch apresentou duração 55,78\% maior em Protected (com), enquanto a ResNet-18 apresentou aumento de 11,79\%. No Transformer de linguagem com WikiText-2 raw-v1, a duração passou de 13,8190 s para 15,5368 s, uma diferença de 12,43\%. No scikit-learn, os aumentos de duração foram de 51,00\% na regressão logística, 20,39\% no boosting por histogramas e 7,62\% na floresta aleatória.
-
-No TensorFlow em \acs{cpu}, também foram observadas melhoras: a duração do \acs{mlp} com dados gerados diminuiu 48,72\%, a da \acs{cnn} diminuiu 52,55\% e a do Transformer de linguagem com WikiText-2 raw-v1 diminuiu 24,31\%. O sentido das diferenças depende, portanto, da carga e do ambiente de execução.
-
-\begingroup\small
-\begin{longtable}{@{}L{3.5cm}L{2.1cm}L{1.9cm}L{3cm}L{3cm}L{1.5cm}@{}}
-\caption{Treinamento e computação. Três observações por métrica e condição. Vermelho indica piora e verde indica melhora em relação ao baseline (sem).}\label{tab:treino}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endfirsthead
-\multicolumn{6}{l}{\tablename~\thetable{} -- continuação}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endhead
-\midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
-\bottomrule
-\endlastfoot
-\acs{mlp}\newline PyTorch, \acs{cpu}\newline Dados gerados & Duração & s & 0,1633\newline $\pm$ 0,0387 & \textcolor{piora}{0,2626\newline $\pm$ 0,0149} & \textcolor{piora}{+60,75}\\\addlinespace[3pt]
-\acs{mlp}\newline PyTorch, \acs{cpu}\newline Dados gerados & Taxa & amostras/s & 39180,5208\newline $\pm$ 6918,7577 & \textcolor{piora}{24373,4754\newline $\pm$ 1288,2193} & \textcolor{piora}{-37,79}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{cpu}\newline Dados gerados & Duração & s & 0,9666\newline $\pm$ 0,0773 & \textcolor{piora}{1,7060\newline $\pm$ 0,1998} & \textcolor{piora}{+76,48}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{cpu}\newline Dados gerados & Taxa & amostras/s & 6620,8546\newline $\pm$ 466,8710 & \textcolor{piora}{3751,5315\newline $\pm$ 531,5943} & \textcolor{piora}{-43,34}\\\addlinespace[3pt]
-Transformer\newline PyTorch, \acs{cpu}\newline Dados gerados & Duração & s & 2,6993\newline $\pm$ 0,0795 & \textcolor{piora}{4,3868\newline $\pm$ 0,2076} & \textcolor{piora}{+62,52}\\\addlinespace[3pt]
-Transformer\newline PyTorch, \acs{cpu}\newline Dados gerados & Taxa & amostras/s & 2371,0142\newline $\pm$ 67,9688 & \textcolor{piora}{1458,9113\newline $\pm$ 74,9503} & \textcolor{piora}{-38,47}\\\addlinespace[3pt]
-Matrizes\newline PyTorch, \acs{cpu}\newline Dados gerados & Duração & s & 0,3249\newline $\pm$ 0,0485 & \textcolor{piora}{0,6141\newline $\pm$ 0,0494} & \textcolor{piora}{+89,01}\\\addlinespace[3pt]
-Matrizes\newline PyTorch, \acs{cpu}\newline Dados gerados & Taxa & GFLOP/s & 1321,9155\newline $\pm$ 213,8778 & \textcolor{piora}{699,3902\newline $\pm$ 53,4200} & \textcolor{piora}{-47,09}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Duração & s & 1,2428\newline $\pm$ 0,0656 & \textcolor{piora}{1,9360\newline $\pm$ 0,1963} & \textcolor{piora}{+55,78}\\\addlinespace[3pt]
-\acs{cnn}\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Taxa & amostras/s & 5149,7054\newline $\pm$ 281,8578 & \textcolor{piora}{3305,8014\newline $\pm$ 395,9982} & \textcolor{piora}{-35,81}\\\addlinespace[3pt]
-ResNet-18\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Duração & s & 9,4812\newline $\pm$ 0,2587 & \textcolor{piora}{10,5986\newline $\pm$ 0,2576} & \textcolor{piora}{+11,79}\\\addlinespace[3pt]
-ResNet-18\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Taxa & amostras/s & 675,0188\newline $\pm$ 17,9765 & \textcolor{piora}{603,8540\newline $\pm$ 14,6947} & \textcolor{piora}{-10,54}\\\addlinespace[3pt]
-Transformer de linguagem\newline PyTorch, \acs{cpu}\newline WikiText-2 raw-v1 & Duração & s & 13,8190\newline $\pm$ 0,4633 & \textcolor{piora}{15,5368\newline $\pm$ 0,3234} & \textcolor{piora}{+12,43}\\\addlinespace[3pt]
-Transformer de linguagem\newline PyTorch, \acs{cpu}\newline WikiText-2 raw-v1 & Taxa & tokens/s & 7410,1043\newline $\pm$ 262,2953 & \textcolor{piora}{6590,8220\newline $\pm$ 136,0242} & \textcolor{piora}{-11,06}\\\addlinespace[3pt]
-\acs{mlp}\newline TensorFlow, \acs{cpu}\newline Dados gerados & Duração & s & 0,5420\newline $\pm$ 0,0574 & \textcolor{melhora}{0,2780\newline $\pm$ 0,0045} & \textcolor{melhora}{-48,72}\\\addlinespace[3pt]
-\acs{mlp}\newline TensorFlow, \acs{cpu}\newline Dados gerados & Taxa & amostras/s & 11807,0872\newline $\pm$ 1464,7314 & \textcolor{melhora}{23022,6038\newline $\pm$ 368,8904} & \textcolor{melhora}{+94,99}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{cpu}\newline Dados gerados & Duração & s & 1,5161\newline $\pm$ 0,3640 & \textcolor{melhora}{0,7194\newline $\pm$ 0,0066} & \textcolor{melhora}{-52,55}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{cpu}\newline Dados gerados & Taxa & amostras/s & 4221,2513\newline $\pm$ 1687,8585 & \textcolor{melhora}{8896,1380\newline $\pm$ 82,1178} & \textcolor{melhora}{+110,75}\\\addlinespace[3pt]
-Transformer\newline TensorFlow, \acs{cpu}\newline Dados gerados & Duração & s & 0,7624\newline $\pm$ 0,0322 & \textcolor{melhora}{0,5897\newline $\pm$ 0,0039} & \textcolor{melhora}{-22,66}\\\addlinespace[3pt]
-Transformer\newline TensorFlow, \acs{cpu}\newline Dados gerados & Taxa & amostras/s & 8394,2491\newline $\pm$ 345,9508 & \textcolor{melhora}{10853,3689\newline $\pm$ 71,3327} & \textcolor{melhora}{+29,30}\\\addlinespace[3pt]
-Matrizes\newline TensorFlow, \acs{cpu}\newline Dados gerados & Duração & s & 0,5548\newline $\pm$ 0,0980 & \textcolor{piora}{0,8090\newline $\pm$ 0,0341} & \textcolor{piora}{+45,83}\\\addlinespace[3pt]
-Matrizes\newline TensorFlow, \acs{cpu}\newline Dados gerados & Taxa & GFLOP/s & 774,1924\newline $\pm$ 183,7001 & \textcolor{piora}{530,8768\newline $\pm$ 24,0264} & \textcolor{piora}{-31,43}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{cpu}\newline CIFAR-10 & Duração & s & 0,7010\newline $\pm$ 0,0545 & \textcolor{piora}{0,7740\newline $\pm$ 0,0076} & \textcolor{piora}{+10,42}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{cpu}\newline CIFAR-10 & Taxa & amostras/s & 9130,0905\newline $\pm$ 630,4345 & \textcolor{piora}{8268,4604\newline $\pm$ 81,2079} & \textcolor{piora}{-9,44}\\\addlinespace[3pt]
-Transformer de linguagem\newline TensorFlow, \acs{cpu}\newline WikiText-2 raw-v1 & Duração & s & 8,3546\newline $\pm$ 0,0880 & \textcolor{melhora}{6,3236\newline $\pm$ 0,1254} & \textcolor{melhora}{-24,31}\\\addlinespace[3pt]
-Transformer de linguagem\newline TensorFlow, \acs{cpu}\newline WikiText-2 raw-v1 & Taxa & tokens/s & 12256,6653\newline $\pm$ 130,4069 & \textcolor{melhora}{16193,2743\newline $\pm$ 327,5523} & \textcolor{melhora}{+32,12}\\\addlinespace[3pt]
-Regressão logística\newline scikit-learn, \acs{cpu}\newline Dados gerados & Duração & s & 0,1949\newline $\pm$ 0,0145 & \textcolor{piora}{0,2944\newline $\pm$ 0,1225} & \textcolor{piora}{+51,00}\\\addlinespace[3pt]
-Boosting por histogramas\newline scikit-learn, \acs{cpu}\newline Dados gerados & Duração & s & 0,4501\newline $\pm$ 0,0210 & \textcolor{piora}{0,5419\newline $\pm$ 0,0408} & \textcolor{piora}{+20,39}\\\addlinespace[3pt]
-Floresta aleatória\newline scikit-learn, \acs{cpu}\newline Dados gerados & Duração & s & 4,0307\newline $\pm$ 0,0401 & \textcolor{piora}{4,3377\newline $\pm$ 0,0283} & \textcolor{piora}{+7,62}\\\addlinespace[3pt]
-\end{longtable}
-\endgroup
-
-\section{Carregamento, checkpoints e operações de arquivos}
-\subsection{Carregamento dos conjuntos de dados}
-O carregamento do CIFAR-10 apresentou maior duração em Protected (com) nos casos de PyTorch. Para a \acs{cnn} em \acs{cpu}, a mediana passou de 0,4426 s para 0,5160 s, correspondendo a 16,57\%. Para a ResNet-18 em \acs{cpu}, a diferença foi de 10,30\%. Esses resultados constam da Tabela~\ref{tab:carga}.
-
-Para o TensorFlow em \acs{cpu}, o carregamento do CIFAR-10 apresentou redução de duração de 15,63\%. O sentido oposto ao observado no PyTorch reforça a necessidade de manter as rotinas de carregamento separadas por biblioteca.
-
-Os tempos de carregamento são distintos da duração medida do treinamento. Sua diferença percentual não deve ser transferida diretamente para o tempo de treinamento ou para o desempenho global de uma aplicação.
-
-\begingroup\small
-\begin{longtable}{@{}L{3.5cm}L{2.1cm}L{1.9cm}L{3cm}L{3cm}L{1.5cm}@{}}
-\caption{Carregamento de dados. Três observações por métrica e condição. Vermelho indica piora e verde indica melhora em relação ao baseline (sem).}\label{tab:carga}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endfirsthead
-\multicolumn{6}{l}{\tablename~\thetable{} -- continuação}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endhead
-\midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
-\bottomrule
-\endlastfoot
-\acs{cnn}\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Carregamento & s & 0,4426\newline $\pm$ 0,0033 & \textcolor{piora}{0,5160\newline $\pm$ 0,0593} & \textcolor{piora}{+16,57}\\\addlinespace[3pt]
-ResNet-18\newline PyTorch, \acs{cpu}\newline CIFAR-10 & Carregamento & s & 0,4444\newline $\pm$ 0,0043 & \textcolor{piora}{0,4902\newline $\pm$ 0,0051} & \textcolor{piora}{+10,30}\\\addlinespace[3pt]
-\acs{cnn}\newline TensorFlow, \acs{cpu}\newline CIFAR-10 & Carregamento & s & 1,5214\newline $\pm$ 0,2948 & \textcolor{melhora}{1,2836\newline $\pm$ 0,0491} & \textcolor{melhora}{-15,63}\\\addlinespace[3pt]
-\end{longtable}
-\endgroup
-
-\subsection{Operações de armazenamento}
-A manipulação de pequenos arquivos passou de 0,0407 s no baseline (sem) para 0,1174 s em Protected (com), um aumento de 188,63\%. A taxa correspondente diminuiu 65,35\%. Na remoção de metadados, o aumento de duração foi de 148,00\% e a redução de taxa foi de 59,68\%.
-
-As leituras aleatórias apresentaram duração 96,40\% maior e taxa 49,08\% menor. A operação de controle de checkpoint apresentou duração 200,85\% maior e taxa 66,76\% menor, conforme a Tabela~\ref{tab:arquivos}. Esse controle é distinto da serialização do estado de um modelo. Embora seus percentuais sejam elevados, os tempos absolutos permanecem na ordem de centésimos ou décimos de segundo nessas execuções.
-
-As operações sequenciais apresentaram redução de duração de 7,47\%, enquanto a gravação de escalares apresentou redução de 5,66\%. Logo, a piora nas operações de pequenos arquivos não se estendeu uniformemente a todas as operações de armazenamento.
-
-\begingroup\small
-\begin{longtable}{@{}L{3.5cm}L{2.1cm}L{1.9cm}L{3cm}L{3cm}L{1.5cm}@{}}
-\caption{Operações de armazenamento. Três observações por métrica e condição. Vermelho indica piora e verde indica melhora em relação ao baseline (sem).}\label{tab:arquivos}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endfirsthead
-\multicolumn{6}{l}{\tablename~\thetable{} -- continuação}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endhead
-\midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
-\bottomrule\endlastfoot
-Leitura e gravação sequenciais\newline Armazenamento & Duração & s & 0,0319\newline $\pm$ 0,0020 & \textcolor{melhora}{0,0295\newline $\pm$ 0,0021} & \textcolor{melhora}{-7,47}\\\addlinespace[3pt]
-Leitura e gravação sequenciais\newline Armazenamento & Taxa & bytes/s & $4,21323\times10^{9}$\newline $\pm$ $2,61725\times10^{8}$ & \textcolor{melhora}{$4,55337\times10^{9}$\newline $\pm$ $3,58864\times10^{8}$} & \textcolor{melhora}{+8,07}\\\addlinespace[3pt]
-Leituras aleatórias\newline Armazenamento & Duração & s & 0,0191\newline $\pm$ 0,0001 & \textcolor{piora}{0,0375\newline $\pm$ 0,0033} & \textcolor{piora}{+96,40}\\\addlinespace[3pt]
-Leituras aleatórias\newline Armazenamento & Taxa & operações/s & 523561,3607\newline $\pm$ 2590,4168 & \textcolor{piora}{266577,6083\newline $\pm$ 23667,6871} & \textcolor{piora}{-49,08}\\\addlinespace[3pt]
-Pequenos arquivos\newline Armazenamento & Duração & s & 0,0407\newline $\pm$ 0,0071 & \textcolor{piora}{0,1174\newline $\pm$ 0,0060} & \textcolor{piora}{+188,63}\\\addlinespace[3pt]
-Pequenos arquivos\newline Armazenamento & Taxa & operações/s & 50362,6170\newline $\pm$ 6765,4908 & \textcolor{piora}{17448,7722\newline $\pm$ 924,1869} & \textcolor{piora}{-65,35}\\\addlinespace[3pt]
-Remoção de metadados\newline Armazenamento & Duração & s & 0,0184\newline $\pm$ 0,0001 & \textcolor{piora}{0,0457\newline $\pm$ 0,0051} & \textcolor{piora}{+148,00}\\\addlinespace[3pt]
-Remoção de metadados\newline Armazenamento & Taxa & operações/s & 111186,4600\newline $\pm$ 430,0770 & \textcolor{piora}{44832,8204\newline $\pm$ 4560,7233} & \textcolor{piora}{-59,68}\\\addlinespace[3pt]
-Gravação de escalares\newline Armazenamento & Duração & s & 0,0343\newline $\pm$ 0,0004 & \textcolor{melhora}{0,0324\newline $\pm$ 0,0023} & \textcolor{melhora}{-5,66}\\\addlinespace[3pt]
-Gravação de escalares\newline Armazenamento & Taxa & operações/s & 291383,1533\newline $\pm$ 3261,0656 & \textcolor{melhora}{308870,0720\newline $\pm$ 22272,4492} & \textcolor{melhora}{+6,00}\\\addlinespace[3pt]
-Checkpoint de controle\newline Armazenamento & Duração & s & 0,0536\newline $\pm$ 0,0054 & \textcolor{piora}{0,1614\newline $\pm$ 0,0197} & \textcolor{piora}{+200,85}\\\addlinespace[3pt]
-Checkpoint de controle\newline Armazenamento & Taxa & bytes/s & $2,50233\times10^{9}$\newline $\pm$ $2,13619\times10^{8}$ & \textcolor{piora}{$8,31758\times10^{8}$\newline $\pm$ $8,44184\times10^{7}$} & \textcolor{piora}{-66,76}\\\addlinespace[3pt]
-\end{longtable}
-\endgroup
-
-\subsection{Checkpoints dos modelos}
-Nos checkpoints do PyTorch em \acs{cpu}, a gravação com sincronização persistente apresentou aumento de 59,52\%, passando de 0,0224 s para 0,0357 s. A leitura desses checkpoints apresentou aumento de 30,77\%.
-
-Na variante sem sincronização persistente, a leitura do PyTorch em \acs{cpu} apresentou aumento de 20,43\% e a gravação apresentou redução de 45,31\%. No TensorFlow em \acs{cpu}, as variantes correspondentes apresentaram reduções tanto na leitura quanto na gravação, conforme a Tabela~\ref{tab:checkpoints}.
-
-A distinção entre variantes é necessária porque uma gravação concluída após a entrega ao sistema operacional e uma gravação sincronizada com o armazenamento representam fronteiras diferentes de conclusão. As diferenças entre elas não devem ser tratadas como repetições de uma única operação.
-
-\begingroup\small
-\begin{longtable}{@{}L{3.5cm}L{2.1cm}L{1.9cm}L{3cm}L{3cm}L{1.5cm}@{}}
-\caption{Checkpoints dos modelos. Três observações por métrica e condição. Vermelho indica piora e verde indica melhora em relação ao baseline (sem).}\label{tab:checkpoints}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endfirsthead
-\multicolumn{6}{l}{\tablename~\thetable{} -- continuação}\\
-\toprule Carga & Métrica & Unidade & baseline (sem)\newline mediana $\pm$ desvio & Protected (com)\newline mediana $\pm$ desvio & $\Delta$ (\%) \\\midrule
-\endhead
-\midrule\multicolumn{6}{r}{Continua na próxima página}\\\endfoot
-\bottomrule
-\endlastfoot
-Checkpoint de modelo\newline PyTorch, \acs{cpu}\newline Sem sincronização persistente & Gravação & s & 0,0202\newline $\pm$ 0,0026 & \textcolor{melhora}{0,0111\newline $\pm$ 0,0007} & \textcolor{melhora}{-45,31}\\\addlinespace[3pt]
-Checkpoint de modelo\newline PyTorch, \acs{cpu}\newline Sem sincronização persistente & Leitura & s & 0,0085\newline $\pm$ 0,0012 & \textcolor{piora}{0,0102\newline $\pm$ 0,0007} & \textcolor{piora}{+20,43}\\\addlinespace[3pt]
-Checkpoint de modelo\newline PyTorch, \acs{cpu}\newline Persistente & Gravação & s & 0,0224\newline $\pm$ 0,0001 & \textcolor{piora}{0,0357\newline $\pm$ 0,0065} & \textcolor{piora}{+59,52}\\\addlinespace[3pt]
-Checkpoint de modelo\newline PyTorch, \acs{cpu}\newline Persistente & Leitura & s & 0,0086\newline $\pm$ 0,0004 & \textcolor{piora}{0,0112\newline $\pm$ 0,0017} & \textcolor{piora}{+30,77}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Sem sincronização persistente & Gravação & s & 0,0670\newline $\pm$ 0,0022 & \textcolor{melhora}{0,0442\newline $\pm$ 0,0004} & \textcolor{melhora}{-34,03}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Sem sincronização persistente & Leitura & s & 0,0198\newline $\pm$ 0,0006 & \textcolor{melhora}{0,0150\newline $\pm$ 0,0009} & \textcolor{melhora}{-24,22}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Persistente & Gravação & s & 0,0878\newline $\pm$ 0,0185 & \textcolor{melhora}{0,0726\newline $\pm$ 0,0232} & \textcolor{melhora}{-17,32}\\\addlinespace[3pt]
-Checkpoint de modelo\newline TensorFlow, \acs{cpu}\newline Persistente & Leitura & s & 0,0220\newline $\pm$ 0,0056 & \textcolor{melhora}{0,0153\newline $\pm$ 0,0012} & \textcolor{melhora}{-30,49}\\\addlinespace[3pt]
-\end{longtable}
-\endgroup
-\section{Discussão dos resultados e consumo do Bitdefender}
-\subsection{Síntese do comportamento observado}
-Os resultados desfavoráveis à máquina com Bitdefender concentram a análise em três grupos: maior duração em tarefas de computação em \acs{cpu}, maior tempo em etapas de inicialização e carregamento e maior custo nas operações selecionadas de armazenamento. Os resultados mais expressivos em termos relativos aparecem nas operações de pequenos arquivos, remoção de metadados e checkpoint de controle. Os tempos absolutos e a frequência com que essas operações ocorrem em uma aplicação determinam sua relevância operacional.
-
-O aumento de duração e a redução de taxa descrevem a mesma mudança sob perspectivas diferentes quando se referem ao mesmo trabalho fixo. Não constituem duas evidências independentes de penalidade. Tampouco é adequado calcular a média dos percentuais de treinamento, importação e armazenamento como uma redução geral de desempenho, pois essas medidas representam operações, unidades e fronteiras de cronometragem diferentes.
-
-A dispersão distingue situações com medianas próximas e situações com repetições mais variáveis. O desvio-padrão elevado na inicialização do PyTorch em Protected (com) ilustra por que o percentual isolado não descreve toda a experiência de execução.
-
-As perdas observadas em pequenos arquivos, remoção de metadados e checkpoints de controle são especialmente relevantes para rotinas com muitos acessos ou gravações frequentes. Nesses casos, Protected (com) apresentou aumentos de duração de 188,63\%, 148,00\% e 200,85\%, respectivamente. No PyTorch em \acs{cpu}, o aumento de 76,48\% na duração da \acs{cnn} com dados gerados evidencia outro ponto de desempenho inferior. Esses resultados delimitam as tarefas de pior desempenho do ambiente protegido e orientam a avaliação crítica de seu custo operacional.
-
-O consumo medido dos processos fornece evidência direta de demanda de recursos pelo próprio Bitdefender: em média, o equivalente a 1,42 processador lógico durante as janelas acompanhadas, com 77,14\% do tempo de processamento do agente concentrado em ctc. Essa demanda permanece relevante mesmo nos ensaios em que Protected (com) termina mais rápido. O ganho total de uma máquina não demonstra ausência de custo do agente, assim como uma perda total não mede isoladamente esse custo.
-
-\subsection{Mecanismos plausíveis e alcance da interpretação}
-A inspeção de operações de entrada e saída e a competição por tempo de processamento constituem mecanismos plausíveis para uma solução de segurança acrescentar trabalho à execução de uma aplicação. A manipulação frequente de objetos pequenos e a persistência de checkpoints são pontos em que uma análise adicional poderia investigar essa participação. Os resultados observados indicam tarefas de interesse para tal investigação, sem medir diretamente quanto do tempo foi consumido pela proteção.
-
-A máquina Protected (com) e a máquina baseline (sem) diferem em geração de processador e número de núcleos. Essas diferenças também podem influenciar os ensaios em \acs{cpu} e as operações de armazenamento. A presença dos componentes do Bitdefender e seu consumo de recursos foram observados diretamente durante a campanha.
-
-\subsection{Implicações para rotinas de trabalho e telecomunicações}
-Para uma rotina com múltiplas inicializações, recargas de dados ou checkpoints frequentes, os resultados selecionados apontam etapas que merecem medição específica. Uma diferença pequena por operação pode ter relevância quando a operação é repetida, mas a projeção para uma rotina completa exige conhecer sua frequência e seu encadeamento. Os percentuais apresentados não substituem essa avaliação.
-
-Em aplicações de \ac{sdr} e telecomunicações, a concorrência por \acs{cpu} e os atrasos repetidos de leitura ou gravação podem comprometer prazos de processamento quando essas operações compartilham recursos. No treinamento de modelos de aprendizado de máquina, os aumentos medidos em tarefas de \acs{cpu}, inicialização e armazenamento podem ampliar o tempo total da rotina. Na inferência, a concorrência por \acs{cpu} e as operações de entrada e saída podem aumentar a latência sob as mesmas condições. Essas implicações descrevem riscos operacionais das diferenças observadas, sem quantificar um resultado de SDR ou inferência.
-
-
-\subsection{Consumo dos processos do Bitdefender}
-\subsubsection{Processamento durante o benchmark}
-Durante as execuções concluídas, os oito componentes observados do Bitdefender consumiram, em conjunto, 898,71 s de processamento nos 631,19 s de intervalos efetivamente acompanhados. A utilização média somada foi de 142,38\% de um processador lógico, equivalente a aproximadamente 1,42 processador lógico ou 3,96\% da capacidade lógica agregada da máquina de 36 processadores lógicos. O maior intervalo amostrado apresentou 477,97\%, equivalente a aproximadamente 4,78 processadores lógicos. Esse pico é simultâneo entre componentes, não a soma de máximos individuais ocorridos em momentos diferentes.
-
-A Tabela~\ref{tab:processos} apresenta a distribuição por componente. Cada componente teve 704 observações de memória e 563 intervalos válidos para cálculo de utilização. O componente ctc concentrou 77,14\% do tempo de processamento observado do agente. Sua utilização média foi de 109,84\%, com pico de 346,43\%. O processo principal apresentou média de 15,80\%, e o componente networkmonitor apresentou 11,48\%. Portanto, o consumo observado do agente não se restringiu ao componente antimalware.
-
-\begin{table}[htbp]
-\centering\small
-\caption{Processamento dos componentes do Bitdefender durante as execuções concluídas. Utilização relativa a um processador lógico. Tempos em segundos.}\label{tab:processos}
-\begin{tabular}{L{3.5cm}rrrrr}
-\toprule Componente & Média (\%) & Pico (\%) & Usuário (s) & Sistema (s) & Total (s) \\\midrule
-ctc & 109,84 & 346,43 & 480,72 & 212,56 & 693,28\\
-Principal & 15,80 & 48,60 & 82,11 & 17,61 & 99,72\\
-networkmonitor & 11,48 & 40,68 & 21,95 & 50,48 & 72,43\\
-antimalware & 2,94 & 190,06 & 16,41 & 2,16 & 18,57\\
-fanotify & 2,01 & 164,48 & 3,52 & 9,15 & 12,67\\
-kpdd & 0,21 & 1,90 & 0,19 & 1,16 & 1,35\\
-Atualização & 0,08 & 10,88 & 0,44 & 0,09 & 0,53\\
-Comunicação & 0,03 & 3,55 & 0,10 & 0,06 & 0,16\\
-\bottomrule\end{tabular}
-\end{table}
-
-\subsubsection{Memória dos componentes durante o benchmark}
-A soma da memória residente apresentou média de 2,15 GiB e máximo amostrado de 2,31 GiB. Os maiores consumidores médios foram antimalware e ctc, com 1013,15 MiB e 791,30 MiB, respectivamente. O componente antimalware atingiu 1145,69 MiB, enquanto ctc atingiu 816,57 MiB. A Tabela~\ref{tab:memprocessos} apresenta os valores por componente. A soma de memória residente pode contar páginas compartilhadas mais de uma vez e, por isso, não equivale à memória privada exclusiva do agente.
-
-\begin{table}[htbp]
-\centering\small
-\caption{Memória residente dos componentes nas execuções concluídas. Valores em MiB.}\label{tab:memprocessos}
-\begin{tabular}{L{5cm}rr}
-\toprule Componente & Média & Máximo amostrado \\\midrule
-antimalware & 1013,15 & 1145,69\\
-ctc & 791,30 & 816,57\\
-Principal & 196,89 & 202,53\\
-Atualização & 119,92 & 119,92\\
-Comunicação & 31,18 & 31,18\\
-fanotify & 21,71 & 21,72\\
-networkmonitor & 18,73 & 18,73\\
-kpdd & 8,91 & 8,91\\
-\bottomrule\end{tabular}
-\end{table}
-
-\subsubsection{Variação temporal nas observações históricas}
-O monitoramento histórico apresentou utilização média ponderada de 44,29\% de um processador lógico. O pico registrado foi de 553,41\%, equivalente a aproximadamente 5,53 processadores lógicos ou 15,37\% da capacidade lógica agregada. A Tabela~\ref{tab:historico} evidencia a variação entre as cinco janelas. A média de 8,94\% na janela iniciada às 10h47 de 7 de outubro e a média de 65,04\% na janela iniciada às 15h38 de 28 de outubro indicam condições de atividade diferentes.
-
-Essas janelas incluem períodos associados a restrições de recursos na investigação anterior. Por isso, caracterizam as condições observadas em cada janela e não uma média diária ou uma referência uniforme sem restrições. A média histórica de 44,29\% e a média de 142,38\% durante o benchmark correspondem a períodos e cargas distintos. Sua diferença não foi utilizada para estimar um efeito causal do treinamento sobre o consumo do agente.
-
-\begin{table}[htbp]
-\centering\small
-\caption{Janelas históricas de monitoramento em 2026, no horário de Brasília. Memória em GiB e duração efetivamente amostrada em minutos.}\label{tab:historico}
-\begin{tabular}{L{3.1cm}rrrrrr}
-\toprule Janela & Amostras & Duração & Média (\%) & Pico (\%) & Residente & Serviço \\\midrule
-07/10, 10h00 & 8 & 0,27 & 23,65 & 32,86 & 2,66 & 11,85\\
-07/10, 10h12 & 359 & 12,32 & 13,22 & 517,46 & 2,66 & 11,85\\
-07/10, 10h47 & 31 & 1,06 & 8,94 & 14,92 & 3,22 & 12,35\\
-28/10, 15h38 & 557 & 19,50 & 65,04 & 553,41 & 2,96 & 6,93\\
-28/10, 16h03 & 107 & 3,66 & 50,16 & 51,90 & 3,03 & 6,94\\
-\bottomrule\end{tabular}
-\end{table}
-
-\subsubsection{Serviços, memória contabilizada e atividade de disco}
-O serviço principal, que reúne o processo principal e seus módulos, respondeu pela maior parte do processamento histórico: média de 44,15\%, frente a 0,12\% do serviço de atualização e 0,02\% do serviço de comunicação. A Tabela~\ref{tab:servicos} apresenta essas medidas e os volumes de leitura e gravação. Os picos individuais dos serviços não devem ser somados para reconstruir um pico conjunto.
-
-\begin{table}[htbp]
-\centering\small
-\caption{Métricas históricas por serviço. A utilização de \acs{cpu} é relativa a um processador lógico.}\label{tab:servicos}
-\setlength{\tabcolsep}{5pt}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{@{}L{3.6cm}*{2}{>{\raggedleft\arraybackslash}p{2.1cm}}>{\raggedleft\arraybackslash}p{2.5cm}*{2}{>{\raggedleft\arraybackslash}p{2.1cm}}@{}}
-\toprule Serviço & \shortstack[r]{\acs{cpu} média\\(\%)} & \shortstack[r]{\acs{cpu} pico\\(\%)} & \shortstack[r]{Memória média\\(GiB)} & \shortstack[r]{Leitura\\(MiB)} & \shortstack[r]{Gravação\\(MiB)} \\\midrule
-Principal e módulos & 44,15 & 553,13 & 8,21 & 76,55 & 15,04\\
-Atualização & 0,12 & 0,23 & 0,53 & 0,00 & 0,14\\
-Comunicação & 0,02 & 1,31 & 0,05 & 0,00 & 1,20\\
-\bottomrule\end{tabular}
-\end{table}
-
-A memória contabilizada média dos três serviços foi de 8,79 GiB, enquanto a soma média da memória residente dos processos foi de 2,87 GiB. Entre as categorias contabilizadas, as médias foram de 2,36 GiB de memória anônima, 4,56 GiB de cache de arquivos e 1,78 GiB de estruturas recuperáveis do kernel. Essas categorias descrevem dimensões distintas da memória. Cache e estruturas recuperáveis não devem ser apresentados como memória privada irrecuperável, e a soma residente não deve ser adicionada à memória contabilizada por serviço.
-
-A atividade histórica acumulada foi de 76,55 MiB de leitura e 16,38 MiB de gravação. Os maiores intervalos de taxa apresentaram 6675,09 KiB/s de leitura e 403,61 KiB/s de gravação. A janela de 28 de outubro iniciada às 15h38 concentrou 76,51 MiB das leituras observadas. Esses volumes representam transferências contabilizadas nos serviços, sem identificar quais acessos de aplicações foram inspecionados. Leituras atendidas pelo cache podem ocorrer sem novas leituras físicas.
-
-Nas observações contemporâneas do benchmark, os contadores de entrada e saída por processo do agente estavam indisponíveis. Assim, a atividade histórica de disco não foi transferida para a campanha de 3 de novembro, e a ausência de contadores por processo não foi tratada como consumo nulo. A combinação das duas escalas caracteriza a demanda de processamento e memória dos componentes.
+\bottomrule\end{tabular}\end{table}
+As frequências base e turbo são especificações da Intel para o \href{https://www.intel.com/content/www/us/en/products/sku/215270/intel-xeon-silver-4316-processor-30m-cache-2-30-ghz/specifications.html}{Xeon Silver 4316} e o \href{https://www.intel.com/content/www/us/en/products/sku/193388/intel-xeon-gold-5220-processor-24-75m-cache-2-20-ghz/specifications.html}{Xeon Gold 5220}, não frequências medidas sob carga. A velocidade nominal dos módulos Protected é 3200 MT/s, com configuração de 2666 MT/s. A \href{https://download.semiconductor.samsung.com/resources/data-sheet/Samsung-NVMe-SSD-980-PRO-Data-Sheet_Rev.2.1_10129504060695.pdf}{Samsung} anuncia até 7000 MB/s de leitura e 5000 MB/s de gravação sequencial para o 980 PRO de 1 TB. Taxas do fabricante não representam a duração das operações de arquivos deste ensaio.
 
 \clearpage
+\section{Bitdefender: recursos ocupados durante o trabalho}
+A unidade central de processamento (CPU) executa as instruções dos programas. O acelerador gráfico (GPU) pode executar parte dos cálculos dos modelos. Nas medições apresentadas, 100\% de CPU corresponde a um processador lógico ocupado. Portanto, 200\% significa o equivalente a dois processadores lógicos, não o dobro da capacidade total da máquina. Os 36 processadores lógicos da máquina Protected somam 3600\% nessa convenção, sem equivaler necessariamente ao desempenho de 36 núcleos físicos independentes.
+
+Durante os intervalos monitorados da nova campanha, os processos visíveis do Bitdefender consumiram em média 196,30\% de CPU, o equivalente a 1,96 processador lógico. O pico de um intervalo foi 617,46\%, equivalente a 6,17 processadores lógicos. Isso corresponde a 5,45\% da capacidade lógica agregada em média e a 17,15\% no intervalo de pico. Esses valores descrevem atividade real do agente durante o ensaio, inclusive preparação e cargas em GPU, e não um recorte exclusivo de treinamento em CPU.
+
+\begin{table}[H]\centering\small
+\caption{Componentes na campanha de 5 de novembro. CPU em porcentagem de um processador lógico. Memória residente média em MiB.}\label{tab:agente}
+\begin{tabular}{L{6cm}rrr}\toprule Componente & CPU média & CPU pico & Memória \\ \midrule
+Componente ctc & 142,41\% & 429,97\% & 1270,13 \\
+Processo principal & 19,64\% & 73,98\% & 365,21 \\
+Antimalware & 15,65\% & 246,00\% & 1255,45 \\
+Componente networkmonitor & 13,28\% & 56,45\% & 125,36 \\
+Componente fanotify & 5,10\% & 61,05\% & 59,61 \\
+\bottomrule\end{tabular}\end{table}
+O componente ctc concentrou 72,55\% do tempo de CPU observado do agente. A Tabela~\ref{tab:agente} mostra que a demanda não se concentra apenas no componente antimalware. A soma da memória residente dos processos teve média de 3,20 GiB e máximo amostrado de 3,23 GiB. Essa soma pode contar páginas compartilhadas mais de uma vez e não mede memória privada exclusiva.
+
+A base histórica do monitor, de 7 e 28 de outubro, cobre 36,82 minutos efetivamente amostrados. Nela, a média ponderada foi 44,29\% de um processador lógico e o pico foi 553,41\%, equivalente a 5,53 processadores lógicos. Algumas janelas podem refletir limites de recursos aplicados à época. Essa média caracteriza as janelas disponíveis, não um dia típico de uso. Uma medição adicional de 20 segundos, sem limites de CPU aplicados aos serviços, apresentou média de 52,31\%.
+
+Nas janelas históricas, a memória contabilizada pelos serviços teve média de 8,79 GiB, enquanto a soma residente dos processos foi de 2,87 GiB. A memória de serviço inclui cache de arquivos e estruturas recuperáveis do kernel. Por isso, interpretar os 8,79 GiB como RAM privada irrecuperável superestimaria essa demanda. Os contadores de entrada e saída por processo estavam indisponíveis na campanha recente. A ausência desses contadores não significa ausência de inspeção de arquivos.
+
+Para uma aplicação que já ocupa quase toda a capacidade de processamento disponível, a demanda do agente reduz a folga para absorver variações. O pico também importa: uma média moderada pode coexistir com intervalos em que vários processadores lógicos atendem ao agente. A consequência depende dos núcleos compartilhados, das filas e dos prazos da aplicação.
+
+\clearpage
+\section{Resultados de desempenho}
+Os resultados de treinamento apresentados na Tabela~\ref{tab:tempos} foram obtidos na CPU. Nas cargas PyTorch em CPU apresentadas, Protected levou mais tempo. A rede convolucional com dados gerados passou de 0,9666 s para 1,8065 s, aumento de 86,89\%. A taxa correspondente caiu de 6620,85 para 3542,71 amostras/s, redução de 46,49\%. Aumento de duração e redução de taxa são formas diferentes de expressar o mesmo trabalho fixo, com denominadores diferentes.
+
+\begin{table}[H]\centering\small
+\caption{Durações em segundos. Mediana $\pm$ desvio-padrão amostral, três repetições por condição. Variação positiva indica maior duração em Protected.}\label{tab:tempos}
+\begin{tabular}{L{6.0cm}rrr}\toprule Tarefa & Baseline (sem) & Protected (com) & Variação \\ \midrule
+\multicolumn{4}{l}{\textbf{CPU e operações de arquivos}} \\
+Inicialização do PyTorch & 0,7451 $\pm$ 0,0182 & 1,8406 $\pm$ 0,0526 & +147,04\% \\
+Treino de rede convolucional / PyTorch & 0,9666 $\pm$ 0,0773 & 1,8065 $\pm$ 0,0580 & +86,89\% \\
+Treino de linguagem / PyTorch & 13,8190 $\pm$ 0,4633 & 19,8194 $\pm$ 0,5534 & +43,42\% \\
+Treino de rede convolucional / TensorFlow & 1,5161 $\pm$ 0,3640 & 0,7959 $\pm$ 0,0120 & -47,51\% \\
+Criação e leitura de 1024 arquivos & 0,0407 $\pm$ 0,0071 & 0,4816 $\pm$ 0,0192 & +1084,35\% \\
+10000 leituras aleatórias & 0,0191 $\pm$ 0,0001 & 0,3091 $\pm$ 0,0716 & +1518,53\% \\
+Gravação e leitura de controle, 64 MiB & 0,0536 $\pm$ 0,0054 & 0,3279 $\pm$ 0,0753 & +511,36\% \\
+Gravação persistente de modelo / PyTorch & 0,0224 $\pm$ 0,0001 & 0,0307 $\pm$ 0,0049 & +37,25\% \\
+Avaliação de 2000 exemplos / regressão logística & 0,0015 $\pm$ 0,0002 & 0,0054 $\pm$ 0,0024 & +260,25\% \\
+\bottomrule\end{tabular}\end{table}
+O caso TensorFlow em CPU com dados gerados apresentou duração 47,51\% menor em Protected. Com CIFAR-10, porém, a rede convolucional TensorFlow levou 28,37\% mais tempo. A direção das diferenças depende da carga e do ambiente. Uma penalidade única para todo treinamento não representa esses resultados.
+
+Nas operações de pequenos arquivos, o aumento foi de 40,67 ms para 481,62 ms por conjunto de 1024 gravações e 1024 leituras. São aproximadamente 441 ms adicionais por conjunto, não por arquivo. As 10000 leituras aleatórias passaram de 19,10 ms para 309,14 ms. Os controles usam arquivos recém-criados e podem ser atendidos parcialmente pelo cache, portanto não medem a velocidade física máxima das unidades.
+
+Checkpoint de modelo é um arquivo que preserva o estado do modelo e do otimizador para restaurar o treinamento. Sua gravação persistente em PyTorch aumentou 37,25\%. Já a variante sem sincronização persistente ficou 25,81\% mais rápida em Protected. O controle de 64 MiB da tabela grava, sincroniza e lê um arquivo comum. Ele não serializa um modelo e não deve ser usado como estimativa universal do custo de checkpoints.
+
+Cada valor reúne três repetições concluídas da mesma sessão. O desvio-padrão descreve a dispersão dessas repetições e não é um intervalo de confiança. As cargas de treinamento selecionadas usam 200 passos medidos e cinco de aquecimento. Foram comparadas tarefas com os mesmos parâmetros, conteúdo dos conjuntos de dados e versões das bibliotecas. A comparação é descritiva entre máquinas.
+
+\clearpage
+\section{O que essas ordens de grandeza significam em IA}
+\subsection{Treinamento: um pequeno custo pode se repetir milhões de vezes}
+Treinar um modelo significa ajustar seus parâmetros usando sucessivos lotes de exemplos. Uma época corresponde a percorrer o conjunto de treinamento uma vez. Portanto, uma diferença pequena por lote ou por leitura pode se repetir muitas vezes. Milissegundos e meses se relacionam pela quantidade de repetições e pela parcela do tempo realmente afetada.
+
+Considere, como exemplo, um treinamento com 14 milhões de amostras, organizadas em lotes de 32 exemplos. Cada época exigiria 437500 lotes. Um atraso adicional de 1 ms por lote somaria 437,5 s, ou 7,29 minutos por época. Em 100 épocas, seriam 12,15 horas adicionais. Esse cenário hipotético mostra como um custo pequeno por operação pode se acumular ao longo do treinamento.
+
+Para tornar um treinamento de um mês concreto, considere uma duração original de 30 dias. Se uma etapa que ocupa todo esse tempo passasse a custar 86,89\% mais, como no caso PyTorch em CPU da tabela, a projeção seria 56,07 dias. Se apenas 20\% do tempo original pertencesse à etapa afetada, a projeção cairia para 35,21 dias. Essas projeções ilustram o efeito acumulado de uma etapa mais lenta. A duração real depende da parcela do treinamento afetada, e os percentuais observados entre os computadores não isolam o efeito do Bitdefender.
+
+\begin{equation}
+T_{\mathrm{projetado}}=T_{\mathrm{original}}(1+f\,d),
+\end{equation}
+\par\indent em que $f$ é a fração do tempo original afetada e $d$ é o aumento relativo dessa etapa, em forma decimal. O exemplo usa $d=0{,}8689$. Sobreposição entre processamento e leitura, cache e execução em GPU podem mudar a fração afetada e exigem medição própria.
+
+\subsection{Inferência: medir o modelo também exige medir o ambiente}
+Inferência é usar um modelo já treinado para produzir uma resposta. Neste ensaio, a regressão logística apresentou 1,49 ms em baseline e 5,37 ms em Protected para avaliar um conjunto de 2000 exemplos. A rotina inclui a predição e o cálculo da acurácia. Esses tempos não são a latência de uma única inferência. A dispersão de 2,39 ms em Protected também mostra por que poucas medidas isoladas podem representar mal uma comparação.
+
+Para um artigo, uma tarefa científica idêntica pode parecer mais lenta quando a medição inclui disputa com serviços de fundo. A consequência é uma comparação menos reprodutível ou uma conclusão sobre eficiência que o experimento não sustenta. Deve-se registrar hardware, carga concorrente e política de proteção, repetir as medidas e comparar modelos sob condições equivalentes. A diferença de ambiente pode ser confundida com uma diferença entre modelos. As medidas apresentadas referem-se à avaliação de um conjunto de exemplos, e uma análise de latência por resposta exige um ensaio específico.
+
+\clearpage
+\section{Rádio: capacidade média e cumprimento de prazos}
+Em rádio definido por software, parte do processamento do sinal é executada pelo computador. As amostras chegam continuamente e precisam ser tratadas em tempo hábil. Aumentar a taxa de amostras ou a complexidade do processamento aproxima a aplicação do limite de CPU. Nesse regime, o trabalho concorrente pode reduzir a taxa sustentável ou provocar acúmulo de dados e perdas, dependendo da margem dos buffers.
+
+Em um rádio operando a 8 milhões de amostras por segundo, pequenas pausas já correspondem a grandes quantidades de dados. Como exemplo de ordem de grandeza, 1 ms nessa taxa corresponde a 8000 amostras recebidas e 500 ms correspondem a 4 milhões de amostras. Se uma pausa impedisse toda a cadeia de processar dados durante esse intervalo, seria necessário armazenar esse volume e depois recuperar o atraso. Nesse exemplo, os números traduzem a duração de uma pausa na quantidade de amostras que precisaria aguardar processamento.
+
+Considere ainda um estágio hipotético que recebe um bloco novo a cada 1 ms e leva 0,95 ms para processá-lo. Sua folga é de apenas 0,05 ms. Se o custo por bloco aumentar 10\%, o processamento passa a 1,045 ms, superior ao intervalo de chegada. A fila cresce enquanto essa condição persistir. Assim, uma diferença de apenas 0,095 ms por bloco pode comprometer a operação contínua mesmo que pareça desprezível em uma tarefa isolada.
+
+\subsection{Por que isso pode aparecer como internet mais lenta}
+Se a capacidade de processamento limita o enlace, reduzir o trabalho disponível por segundo pode exigir uma taxa de dados menor para manter o fluxo estável. Em um modelo ilustrativo de capacidade perfeitamente divisível, retirar 5,45\% da capacidade de uma aplicação já saturada transformaria um limite de 100 Mbit/s em cerca de 94,55 Mbit/s. O percentual vem da ocupação média agregada do agente nesta campanha, mas a conversão em taxa de dados pressupõe escala linear e disputa pelos mesmos recursos. Ela não é uma medição de internet ou de rádio.
+
+O pico observado, equivalente a 6,17 processadores lógicos, evidencia a importância da margem para variações. Sua duração e o escalonamento determinam se há aumento de latência, absorção pelos buffers ou perda de dados. Não é correto converter esse pico diretamente em uma queda sustentada de 17,15\% na taxa de dados. A validação necessária é executar o rádio na taxa pretendida e registrar perdas, filas, latência e utilização por núcleo junto com o agente.
+
 \section{Conclusão}
-Este relatório caracterizou diferenças de desempenho entre baseline (sem Bitdefender) e Protected (com Bitdefender), contemplando pioras e melhoras nas tarefas analisadas. A contribuição da análise está em separar inicialização, computação, carregamento e persistência e caracterizar o consumo dos componentes do Bitdefender, apresentando valores absolutos e dispersão em conjunto com as diferenças relativas.
+A comparação mantém uma tendência desfavorável em várias tarefas PyTorch e de arquivos, com exceções favoráveis em TensorFlow. O dado mais direto sobre o Bitdefender é sua demanda concorrente: média de 1,96 processador lógico e pico amostrado de 6,17 durante a campanha. Para IA, o efeito prático depende de quantas vezes a etapa se repete. Para rádio, depende de a execução terminar antes da chegada do próximo bloco. As diferenças entre os PCs impedem separar uma penalidade causal exclusiva da proteção.
 
-Entre os resultados selecionados, a manipulação de pequenos arquivos apresentou aumento de duração de 188,63\%, a remoção de metadados apresentou 148,00\% e o checkpoint de controle apresentou 200,85\%. No treinamento da \acs{cnn} em \acs{cpu} com PyTorch e dados gerados, a duração aumentou 76,48\%. Esses resultados destacam as tarefas em que Protected (com) apresentou maior tempo de execução. Também ocorreram melhoras em CPU, como a redução de duração de 52,55\% na \acs{cnn} com TensorFlow e dados gerados. Durante as execuções concluídas, o agente utilizou em média o equivalente a 1,42 processador lógico, com predominância do componente ctc no tempo de processamento observado.
+Os resultados comparam medições de 3 de novembro de 2026 no ambiente sem Bitdefender e de 5 de novembro no ambiente com Bitdefender. Foram consideradas somente execuções concluídas sem avisos ou indícios registrados de interferência.
 
-A implicação prática é que os aumentos medidos em \acs{cpu} e armazenamento podem comprometer rotinas de SDR com prazos estritos e ampliar o tempo de treinamento ou a latência de inferência quando essas etapas compartilham recursos. A avaliação de uma estação de trabalho deve considerar tanto o cálculo numérico quanto as operações que iniciam, alimentam e preservam o processamento.
 \end{document}

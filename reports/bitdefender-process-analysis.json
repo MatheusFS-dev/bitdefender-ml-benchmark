@@ -134,7 +134,91 @@
       "write_mib": 1.203125
     }
   ],
-  "benchmark_processes": [
+  "benchmark_total": {
+    "session": "XGM-046057LN_-protected-20261105T120336Z",
+    "intervals": 793,
+    "seconds": 910.588843253,
+    "cpu_s": 1787.4700000000037,
+    "cpu_mean": 196.29825395338926,
+    "cpu_peak": 617.4555470188785,
+    "rss_mean_gib": 3.1952067912263074,
+    "rss_peak_gib": 3.233661651611328
+  },
+  "benchmark_components": [
+    {
+      "name": "bdsecd:ctc",
+      "cpu_mean": 142.41004703806976,
+      "cpu_peak": 429.9667365223555,
+      "cpu_s": 1296.7700000000132,
+      "rss_mean_mib": 1270.1312148688437,
+      "rss_peak_mib": 1302.31640625
+    },
+    {
+      "name": "bdsecd",
+      "cpu_mean": 19.642234947775606,
+      "cpu_peak": 73.98369545467455,
+      "cpu_s": 178.85999999998648,
+      "rss_mean_mib": 365.2141160331906,
+      "rss_peak_mib": 377.30078125
+    },
+    {
+      "name": "bdsecd:antimalware",
+      "cpu_mean": 15.653607119848823,
+      "cpu_peak": 245.99578738687512,
+      "cpu_s": 142.5400000000007,
+      "rss_mean_mib": 1255.4512346092076,
+      "rss_peak_mib": 1263.95703125
+    },
+    {
+      "name": "bdsecd:networkmonitor",
+      "cpu_mean": 13.27595348967961,
+      "cpu_peak": 56.45308212279388,
+      "cpu_s": 120.56999999999425,
+      "rss_mean_mib": 125.36118174518201,
+      "rss_peak_mib": 125.37109375
+    },
+    {
+      "name": "bdsecd:fanotify",
+      "cpu_mean": 5.102122246904521,
+      "cpu_peak": 61.05382379944475,
+      "cpu_s": 46.06000000000233,
+      "rss_mean_mib": 59.605886978051394,
+      "rss_peak_mib": 59.71875
+    },
+    {
+      "name": "bdsecd:kpdd",
+      "cpu_mean": 0.21411771294370108,
+      "cpu_peak": 1.8408252540407561,
+      "cpu_s": 1.8800000000019281,
+      "rss_mean_mib": 26.25390625,
+      "rss_peak_mib": 26.25390625
+    },
+    {
+      "name": "updated",
+      "cpu_mean": 0.11724866258426585,
+      "cpu_peak": 0.9362760835166107,
+      "cpu_s": 0.6500000000044253,
+      "rss_mean_mib": 122.13671875,
+      "rss_peak_mib": 122.13671875
+    },
+    {
+      "name": "epagngd",
+      "cpu_mean": 0.018354724431379532,
+      "cpu_peak": 1.7671234527639414,
+      "cpu_s": 0.14000000000041624,
+      "rss_mean_mib": 47.73046875,
+      "rss_peak_mib": 47.73046875
+    },
+    {
+      "name": "bdhostinfo",
+      "cpu_mean": null,
+      "cpu_peak": 0.0,
+      "cpu_s": 0.0,
+      "rss_mean_mib": 6.5625,
+      "rss_peak_mib": 6.5625
+    }
+  ],
+  "previous_campaign_benchmark_processes": [
     {
       "name": "bdsecd:ctc",
       "n": 704,
@@ -248,12 +332,17 @@
       "io_available": 0
     }
   ],
-  "benchmark_aggregate": {
+  "previous_campaign_benchmark_aggregate": {
     "cpu_mean": 142.38383597624173,
     "cpu_peak": 477.97025902512485,
     "rss_mean_gib": 2.1501977389509026,
     "rss_peak_gib": 2.309192657470703,
     "cpu_s": 898.7100000000004,
     "ctc_cpu_share": 77.14168085366909
+  },
+  "method": {
+    "benchmark": "CPU counter differences for identical PID and creation time, weighted by elapsed monotonic intervals, within eligible completed attempts only. All devices included. RSS is sample average.",
+    "historical": "Previously computed historical aggregates verified against the read-only monitor database. Windows include possible resource limits.",
+    "current_limits_check": "2026-11-05: all three Bitdefender services report unlimited CPU quota, MemoryHigh and MemoryMax. This is current state, not a retrospective policy verification."
   }
 }
