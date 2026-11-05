@@ -7,122 +7,103 @@
 \usepackage{microtype,booktabs,longtable,array,amsmath,acro,indentfirst,float}
 \setlength{\parindent}{0.5cm}
 \usepackage[hidelinks]{hyperref}
-\DeclareAcronym{cpu}{short=CPU,long=unidade central de processamento}
-\DeclareAcronym{mlp}{short=MLP,long=perceptron multicamadas}
-\DeclareAcronym{cnn}{short=CNN,long=rede neural convolucional}
-\DeclareAcronym{sdr}{short=SDR,long=rádio definido por software}
+\DeclareAcronym{cpu}{short=CPU,long={unidade central de processamento, do inglês \textit{central processing unit}}}
+\DeclareAcronym{gpu}{short=GPU,long={unidade de processamento gráfico, do inglês \textit{graphics processing unit}}}
+\DeclareAcronym{ia}{short=IA,long=inteligência artificial}
+\DeclareAcronym{sdr}{short=SDR,long={rádio definido por software, do inglês \textit{software-defined radio}}}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \setlength{\tabcolsep}{3pt}
 \renewcommand{\arraystretch}{1.18}
 \setlength{\emergencystretch}{2em}
 \linespread{0.98}
-\title{Impactos de desempenho em inteligência artificial e rádio:\\ comparação entre ambientes com e sem Bitdefender}
+\title{Impactos de desempenho em inteligência artificial e aplicações de rádio:\\ comparação entre ambientes com e sem Bitdefender}
 \author{}
 \date{}
 \begin{document}
 \maketitle
 \section{Objetivo e limites da comparação}
-Este relatório compara o desempenho de aplicações de inteligência artificial e operações de arquivos em dois computadores, um declarado sem Bitdefender (baseline) e outro com o produto em execução (Protected). As permissões disponíveis impediram testar o mesmo computador com a proteção ativada e desativada. Por isso, os resultados descrevem a diferença entre os ambientes e não isolam a contribuição exclusiva do Bitdefender. Os processadores, as unidades de armazenamento e os sistemas de arquivos também diferem, conforme a Tabela~\ref{tab:ambientes}.
-
-Mesmo com essa limitação, observa-se uma tendência de maior duração em várias cargas PyTorch e operações de arquivos, acompanhada de consumo mensurável de CPU pelos componentes do Bitdefender. Também ocorreram melhoras em TensorFlow. A presença dos componentes confirma sua execução, embora a consulta do estado completo da proteção não tenha sido conclusiva.
+Este relatório compara o desempenho de aplicações de \ac{ia} e operações de arquivos em dois computadores, um sem o Bitdefender (baseline) e outro com o produto em execução (Protected). As permissões disponíveis impediram testar o mesmo computador com a proteção ativada e desativada. Por isso, os resultados descrevem a diferença entre os ambientes e não isolam a contribuição exclusiva do Bitdefender. Os processadores, as unidades de armazenamento e os sistemas de arquivos também diferem, conforme a Tabela~\ref{tab:ambientes}. Mesmo com essa limitação, observa-se uma tendência de maior duração em várias cargas e operações de arquivos, acompanhada de consumo mensurável de \ac{cpu} pelos componentes do Bitdefender.
 
 \begin{table}[H]\centering\small
 \caption{Características dos computadores comparados.}\label{tab:ambientes}
 \begin{tabular}{L{2.5cm}L{6cm}L{6cm}}\toprule & Baseline (sem) & Protected (com) \\ \midrule
 Processador & Xeon Silver 4316, 20 núcleos / 40 threads & Xeon Gold 5220, 18 núcleos / 36 threads \\
 Frequências & 2,30 GHz base / até 3,40 GHz turbo & 2,20 GHz base / até 3,90 GHz turbo \\
-Memória & 64 GB DDR4, 2 módulos de 32 GB, 2666 MT/s & 64 GB DDR4, 4 módulos de 16 GB, 2666 MT/s configurados \\
+Memória & 64 GB DDR4, 2 módulos de 32 GB, 2666 MT/s & 64 GB DDR4, 4 módulos de 16 GB, 2666 MT/s \\
 Unidade de dados & Samsung 980 PRO, 1 TB & LITEON CA5-8D512, 512 GB \\
 Leitura sequencial & Até 7000 MB/s & Até 3300 MB/s \\
 Gravação sequencial & Até 5000 MB/s & Até 2100 MB/s \\
 Sistema operacional & Linux, Ubuntu & Linux, Ubuntu \\
 \bottomrule\end{tabular}\end{table}
-As frequências base e turbo são especificações da Intel para o \href{https://www.intel.com/content/www/us/en/products/sku/215270/intel-xeon-silver-4316-processor-30m-cache-2-30-ghz/specifications.html}{Xeon Silver 4316} e o \href{https://www.intel.com/content/www/us/en/products/sku/193388/intel-xeon-gold-5220-processor-24-75m-cache-2-20-ghz/specifications.html}{Xeon Gold 5220}, não frequências medidas sob carga. A velocidade nominal dos módulos Protected é 3200 MT/s, com configuração de 2666 MT/s. A \href{https://download.semiconductor.samsung.com/resources/data-sheet/Samsung-NVMe-SSD-980-PRO-Data-Sheet_Rev.2.1_10129504060695.pdf}{Samsung} anuncia até 7000 MB/s de leitura e 5000 MB/s de gravação sequencial para o 980 PRO de 1 TB. Taxas do fabricante não representam a duração das operações de arquivos deste ensaio.
+As frequências base e turbo são especificações da Intel para o \href{https://www.intel.com/content/www/us/en/products/sku/215270/intel-xeon-silver-4316-processor-30m-cache-2-30-ghz/specifications.html}{Xeon Silver 4316} e o \href{https://www.intel.com/content/www/us/en/products/sku/193388/intel-xeon-gold-5220-processor-24-75m-cache-2-20-ghz/specifications.html}{Xeon Gold 5220}.
 
-\clearpage
 \section{Bitdefender: recursos ocupados durante o trabalho}
-A unidade central de processamento (CPU) executa as instruções dos programas. O acelerador gráfico (GPU) pode executar parte dos cálculos dos modelos. Nas medições apresentadas, 100\% de CPU corresponde a um processador lógico ocupado. Portanto, 200\% significa o equivalente a dois processadores lógicos, não o dobro da capacidade total da máquina. Os 36 processadores lógicos da máquina Protected somam 3600\% nessa convenção, sem equivaler necessariamente ao desempenho de 36 núcleos físicos independentes.
+A \ac{cpu} executa as instruções dos programas. Nas medições apresentadas, 100\% de \ac{cpu} corresponde a um processador lógico ocupado. Portanto, 200\% significa o equivalente a dois processadores lógicos.
 
-Durante os intervalos monitorados da nova campanha, os processos visíveis do Bitdefender consumiram em média 196,30\% de CPU, o equivalente a 1,96 processador lógico. O pico de um intervalo foi 617,46\%, equivalente a 6,17 processadores lógicos. Isso corresponde a 5,45\% da capacidade lógica agregada em média e a 17,15\% no intervalo de pico. Esses valores descrevem atividade real do agente durante o ensaio, inclusive preparação e cargas em GPU, e não um recorte exclusivo de treinamento em CPU.
+Durante os intervalos monitorados da nova campanha, os processos visíveis do Bitdefender consumiram em média 196,30\% de \ac{cpu}, o equivalente a 1,96 processador lógico. O pico de um intervalo foi 617,46\%, equivalente a 6,17 processadores lógicos. Esses valores descrevem atividade real do agente durante o ensaio, inclusive preparação e cargas envolvendo a \ac{gpu}.
 
 \begin{table}[H]\centering\small
-\caption{Componentes na campanha de 5 de novembro. CPU em porcentagem de um processador lógico. Memória residente média em MiB.}\label{tab:agente}
-\begin{tabular}{L{6cm}rrr}\toprule Componente & CPU média & CPU pico & Memória \\ \midrule
+\caption{Componentes do BitDefender. \ac{cpu} em porcentagem de um processador lógico. Memória residente média em MiB.}\label{tab:agente}
+\vspace{0.1cm}
+\begin{tabular}{L{6cm}rrr}\toprule Componente & \ac{cpu} média & \ac{cpu} pico & Memória \\ \midrule
 Componente ctc & 142,41\% & 429,97\% & 1270,13 \\
 Processo principal & 19,64\% & 73,98\% & 365,21 \\
 Antimalware & 15,65\% & 246,00\% & 1255,45 \\
 Componente networkmonitor & 13,28\% & 56,45\% & 125,36 \\
 Componente fanotify & 5,10\% & 61,05\% & 59,61 \\
 \bottomrule\end{tabular}\end{table}
-O componente ctc concentrou 72,55\% do tempo de CPU observado do agente. A Tabela~\ref{tab:agente} mostra que a demanda não se concentra apenas no componente antimalware. A soma da memória residente dos processos teve média de 3,20 GiB e máximo amostrado de 3,23 GiB. Essa soma pode contar páginas compartilhadas mais de uma vez e não mede memória privada exclusiva.
-
-A base histórica do monitor, de 7 e 28 de outubro, cobre 36,82 minutos efetivamente amostrados. Nela, a média ponderada foi 44,29\% de um processador lógico e o pico foi 553,41\%, equivalente a 5,53 processadores lógicos. Algumas janelas podem refletir limites de recursos aplicados à época. Essa média caracteriza as janelas disponíveis, não um dia típico de uso. Uma medição adicional de 20 segundos, sem limites de CPU aplicados aos serviços, apresentou média de 52,31\%.
-
-Nas janelas históricas, a memória contabilizada pelos serviços teve média de 8,79 GiB, enquanto a soma residente dos processos foi de 2,87 GiB. A memória de serviço inclui cache de arquivos e estruturas recuperáveis do kernel. Por isso, interpretar os 8,79 GiB como RAM privada irrecuperável superestimaria essa demanda. Os contadores de entrada e saída por processo estavam indisponíveis na campanha recente. A ausência desses contadores não significa ausência de inspeção de arquivos.
+O componente ctc concentrou 72,55\% do tempo de \ac{cpu} observado do agente. A Tabela~\ref{tab:agente} mostra que a demanda não se concentra apenas no componente antimalware. A soma da memória residente dos processos teve média de 3,20 GiB e máximo amostrado de 3,23 GiB. Essa soma pode contar páginas compartilhadas mais de uma vez e não mede memória privada exclusiva. Porém, ainda é um valor elevado.
 
 Para uma aplicação que já ocupa quase toda a capacidade de processamento disponível, a demanda do agente reduz a folga para absorver variações. O pico também importa: uma média moderada pode coexistir com intervalos em que vários processadores lógicos atendem ao agente. A consequência depende dos núcleos compartilhados, das filas e dos prazos da aplicação.
 
-\clearpage
 \section{Resultados de desempenho}
-Os resultados de treinamento apresentados na Tabela~\ref{tab:tempos} foram obtidos na CPU. Nas cargas PyTorch em CPU apresentadas, Protected levou mais tempo. A rede convolucional com dados gerados passou de 0,9666 s para 1,8065 s, aumento de 86,89\%. A taxa correspondente caiu de 6620,85 para 3542,71 amostras/s, redução de 46,49\%. Aumento de duração e redução de taxa são formas diferentes de expressar o mesmo trabalho fixo, com denominadores diferentes.
+Os resultados de treinamento apresentados na Tabela~\ref{tab:tempos} foram obtidos na \ac{cpu}. Nas cargas PyTorch em \ac{cpu} apresentadas, Protected levou mais tempo. A rede convolucional com dados gerados passou de 0,9666 s para 1,8065 s, aumento de 86,89\%. A taxa correspondente caiu de 6620,85 para 3542,71 amostras/s, redução de 46,49\%. Aumento de duração e redução de taxa são formas diferentes de expressar o mesmo trabalho fixo, com denominadores diferentes.
 
 \begin{table}[H]\centering\small
 \caption{Durações em segundos. Mediana $\pm$ desvio-padrão amostral, três repetições por condição. Variação positiva indica maior duração em Protected.}\label{tab:tempos}
 \begin{tabular}{L{6.0cm}rrr}\toprule Tarefa & Baseline (sem) & Protected (com) & Variação \\ \midrule
-\multicolumn{4}{l}{\textbf{CPU e operações de arquivos}} \\
+\multicolumn{4}{l}{\textbf{\ac{cpu} e operações de arquivos}} \\
 Inicialização do PyTorch & 0,7451 $\pm$ 0,0182 & 1,8406 $\pm$ 0,0526 & +147,04\% \\
 Treino de rede convolucional / PyTorch & 0,9666 $\pm$ 0,0773 & 1,8065 $\pm$ 0,0580 & +86,89\% \\
 Treino de linguagem / PyTorch & 13,8190 $\pm$ 0,4633 & 19,8194 $\pm$ 0,5534 & +43,42\% \\
-Treino de rede convolucional / TensorFlow & 1,5161 $\pm$ 0,3640 & 0,7959 $\pm$ 0,0120 & -47,51\% \\
 Criação e leitura de 1024 arquivos & 0,0407 $\pm$ 0,0071 & 0,4816 $\pm$ 0,0192 & +1084,35\% \\
 10000 leituras aleatórias & 0,0191 $\pm$ 0,0001 & 0,3091 $\pm$ 0,0716 & +1518,53\% \\
 Gravação e leitura de controle, 64 MiB & 0,0536 $\pm$ 0,0054 & 0,3279 $\pm$ 0,0753 & +511,36\% \\
 Gravação persistente de modelo / PyTorch & 0,0224 $\pm$ 0,0001 & 0,0307 $\pm$ 0,0049 & +37,25\% \\
 Avaliação de 2000 exemplos / regressão logística & 0,0015 $\pm$ 0,0002 & 0,0054 $\pm$ 0,0024 & +260,25\% \\
 \bottomrule\end{tabular}\end{table}
-O caso TensorFlow em CPU com dados gerados apresentou duração 47,51\% menor em Protected. Com CIFAR-10, porém, a rede convolucional TensorFlow levou 28,37\% mais tempo. A direção das diferenças depende da carga e do ambiente. Uma penalidade única para todo treinamento não representa esses resultados.
 
 Nas operações de pequenos arquivos, o aumento foi de 40,67 ms para 481,62 ms por conjunto de 1024 gravações e 1024 leituras. São aproximadamente 441 ms adicionais por conjunto, não por arquivo. As 10000 leituras aleatórias passaram de 19,10 ms para 309,14 ms. Os controles usam arquivos recém-criados e podem ser atendidos parcialmente pelo cache, portanto não medem a velocidade física máxima das unidades.
 
-Checkpoint de modelo é um arquivo que preserva o estado do modelo e do otimizador para restaurar o treinamento. Sua gravação persistente em PyTorch aumentou 37,25\%. Já a variante sem sincronização persistente ficou 25,81\% mais rápida em Protected. O controle de 64 MiB da tabela grava, sincroniza e lê um arquivo comum. Ele não serializa um modelo e não deve ser usado como estimativa universal do custo de checkpoints.
+Checkpoint de modelo é um arquivo que preserva o estado do modelo e do otimizador para restaurar o treinamento. Sua gravação persistente em PyTorch aumentou 37,25\%. Já a variante sem sincronização persistente ficou 25,81\% mais rápida em Protected. O controle de 64 MiB da tabela grava, sincroniza e lê um arquivo comum. Ele não serializa um modelo e não deve ser usado como estimativa universal do custo de checkpoints. Ou seja, um caso real pode ser mais pesado ainda. Além disso, esse tipo de operação é repetida centenas de vezes durante um treinamento real.
 
-Cada valor reúne três repetições concluídas da mesma sessão. O desvio-padrão descreve a dispersão dessas repetições e não é um intervalo de confiança. As cargas de treinamento selecionadas usam 200 passos medidos e cinco de aquecimento. Foram comparadas tarefas com os mesmos parâmetros, conteúdo dos conjuntos de dados e versões das bibliotecas. A comparação é descritiva entre máquinas.
+Cada valor reúne três repetições concluídas da mesma sessão. O desvio-padrão descreve a dispersão dessas repetições. As cargas de treinamento selecionadas usam 200 passos medidos e cinco de aquecimento. Foram comparadas tarefas com os mesmos parâmetros, conteúdo dos conjuntos de dados e versões das bibliotecas.
 
-\clearpage
-\section{O que essas ordens de grandeza significam em IA}
+\section{O que essas ordens de grandeza significam em \texorpdfstring{\ac{ia}}{IA}}
 \subsection{Treinamento: um pequeno custo pode se repetir milhões de vezes}
 Treinar um modelo significa ajustar seus parâmetros usando sucessivos lotes de exemplos. Uma época corresponde a percorrer o conjunto de treinamento uma vez. Portanto, uma diferença pequena por lote ou por leitura pode se repetir muitas vezes. Milissegundos e meses se relacionam pela quantidade de repetições e pela parcela do tempo realmente afetada.
 
-Considere, como exemplo, um treinamento com 14 milhões de amostras, organizadas em lotes de 32 exemplos. Cada época exigiria 437500 lotes. Um atraso adicional de 1 ms por lote somaria 437,5 s, ou 7,29 minutos por época. Em 100 épocas, seriam 12,15 horas adicionais. Esse cenário hipotético mostra como um custo pequeno por operação pode se acumular ao longo do treinamento.
+Os exemplos desta seção e da seção de rádio vêm do histórico real de testes e projetos do autor. Nesse histórico, houve treinamentos que chegaram a durar três meses. Um dos casos de treinamento envolve 14 milhões de amostras, organizadas em lotes de 32 exemplos. Cada época exige 437500 lotes. Um atraso adicional de 1 ms por lote representa 437,5 s, ou 7,29 minutos por época. Em 100 épocas, esse acréscimo soma 12,15 horas adicionais. O caso real mostra a escala de repetição das operações. O cálculo de 1 ms por lote quantifica o custo acumulado, sem atribuir esse atraso ao Bitdefender nos treinamentos anteriores.
 
-Para tornar um treinamento de um mês concreto, considere uma duração original de 30 dias. Se uma etapa que ocupa todo esse tempo passasse a custar 86,89\% mais, como no caso PyTorch em CPU da tabela, a projeção seria 56,07 dias. Se apenas 20\% do tempo original pertencesse à etapa afetada, a projeção cairia para 35,21 dias. Essas projeções ilustram o efeito acumulado de uma etapa mais lenta. A duração real depende da parcela do treinamento afetada, e os percentuais observados entre os computadores não isolam o efeito do Bitdefender.
-
-\begin{equation}
-T_{\mathrm{projetado}}=T_{\mathrm{original}}(1+f\,d),
-\end{equation}
-\par\indent em que $f$ é a fração do tempo original afetada e $d$ é o aumento relativo dessa etapa, em forma decimal. O exemplo usa $d=0{,}8689$. Sobreposição entre processamento e leitura, cache e execução em GPU podem mudar a fração afetada e exigem medição própria.
+Para quantificar o impacto em treinamentos que duram meses, o cálculo a seguir usa 30 dias como referência. Se uma etapa que ocupa todo esse tempo passasse a custar 86,89\% mais, como no caso PyTorch em \ac{cpu} da tabela, a projeção seria 56,07 dias. Se apenas 20\% do tempo original pertencesse à etapa afetada, a projeção cairia para 35,21 dias. Essas projeções quantificam o efeito acumulado de uma etapa mais lenta.
 
 \subsection{Inferência: medir o modelo também exige medir o ambiente}
 Inferência é usar um modelo já treinado para produzir uma resposta. Neste ensaio, a regressão logística apresentou 1,49 ms em baseline e 5,37 ms em Protected para avaliar um conjunto de 2000 exemplos. A rotina inclui a predição e o cálculo da acurácia. Esses tempos não são a latência de uma única inferência. A dispersão de 2,39 ms em Protected também mostra por que poucas medidas isoladas podem representar mal uma comparação.
 
-Para um artigo, uma tarefa científica idêntica pode parecer mais lenta quando a medição inclui disputa com serviços de fundo. A consequência é uma comparação menos reprodutível ou uma conclusão sobre eficiência que o experimento não sustenta. Deve-se registrar hardware, carga concorrente e política de proteção, repetir as medidas e comparar modelos sob condições equivalentes. A diferença de ambiente pode ser confundida com uma diferença entre modelos. As medidas apresentadas referem-se à avaliação de um conjunto de exemplos, e uma análise de latência por resposta exige um ensaio específico.
+Para um artigo, uma tarefa científica idêntica pode parecer mais lenta quando a medição inclui disputa com serviços de fundo. A consequência é uma comparação menos reprodutível ou uma conclusão sobre eficiência que o experimento não sustenta. Deve-se registrar hardware, carga concorrente e política de proteção, repetir as medidas e comparar modelos sob condições equivalentes. A diferença de ambiente pode ser confundida com uma diferença entre modelos. Em outras palavras, um artigo submetido em uma revista poderia ser rejeitado por causa desses resultados contaminados.
 
-\clearpage
 \section{Rádio: capacidade média e cumprimento de prazos}
-Em rádio definido por software, parte do processamento do sinal é executada pelo computador. As amostras chegam continuamente e precisam ser tratadas em tempo hábil. Aumentar a taxa de amostras ou a complexidade do processamento aproxima a aplicação do limite de CPU. Nesse regime, o trabalho concorrente pode reduzir a taxa sustentável ou provocar acúmulo de dados e perdas, dependendo da margem dos buffers.
+Em \ac{sdr}, parte do processamento do sinal é executada pelo computador. As amostras chegam continuamente e precisam ser tratadas em tempo hábil. Aumentar a taxa de amostras ou a complexidade do processamento aproxima a aplicação do limite de \ac{cpu}. Nesse regime, o trabalho concorrente pode reduzir a taxa sustentável ou provocar acúmulo de dados e perdas, dependendo da margem dos buffers.
 
-Em um rádio operando a 8 milhões de amostras por segundo, pequenas pausas já correspondem a grandes quantidades de dados. Como exemplo de ordem de grandeza, 1 ms nessa taxa corresponde a 8000 amostras recebidas e 500 ms correspondem a 4 milhões de amostras. Se uma pausa impedisse toda a cadeia de processar dados durante esse intervalo, seria necessário armazenar esse volume e depois recuperar o atraso. Nesse exemplo, os números traduzem a duração de uma pausa na quantidade de amostras que precisaria aguardar processamento.
+Em um rádio operando a 8 milhões de amostras por segundo, pequenas pausas já correspondem a grandes quantidades de dados. Nessa condição de operação, 1 ms corresponde a 8000 amostras recebidas e 500 ms correspondem a 4 milhões de amostras. Se uma pausa impedisse toda a cadeia de processar dados durante esse intervalo, seria necessário armazenar esse volume e depois recuperar o atraso. Nessa conversão, os números traduzem a duração de uma pausa na quantidade de amostras que precisaria aguardar processamento.
 
-Considere ainda um estágio hipotético que recebe um bloco novo a cada 1 ms e leva 0,95 ms para processá-lo. Sua folga é de apenas 0,05 ms. Se o custo por bloco aumentar 10\%, o processamento passa a 1,045 ms, superior ao intervalo de chegada. A fila cresce enquanto essa condição persistir. Assim, uma diferença de apenas 0,095 ms por bloco pode comprometer a operação contínua mesmo que pareça desprezível em uma tarefa isolada.
+Outro caso do histórico de projetos é um estágio que recebe um bloco novo a cada 1 ms e leva 0,95 ms para processá-lo. Sua folga é de apenas 0,05 ms. Se o custo por bloco aumentar 10\%, o processamento passa a 1,045 ms, superior ao intervalo de chegada. A fila cresce enquanto essa condição persistir. Assim, uma diferença de apenas 0,095 ms por bloco pode comprometer a operação contínua mesmo que pareça desprezível em uma tarefa isolada.
 
-\subsection{Por que isso pode aparecer como internet mais lenta}
-Se a capacidade de processamento limita o enlace, reduzir o trabalho disponível por segundo pode exigir uma taxa de dados menor para manter o fluxo estável. Em um modelo ilustrativo de capacidade perfeitamente divisível, retirar 5,45\% da capacidade de uma aplicação já saturada transformaria um limite de 100 Mbit/s em cerca de 94,55 Mbit/s. O percentual vem da ocupação média agregada do agente nesta campanha, mas a conversão em taxa de dados pressupõe escala linear e disputa pelos mesmos recursos. Ela não é uma medição de internet ou de rádio.
+Se a capacidade de processamento limita o enlace, reduzir o trabalho disponível por segundo pode exigir uma taxa de dados menor para manter o fluxo estável. Para calcular o efeito sobre a taxa de dados, considerando capacidade perfeitamente divisível, retirar 5,45\% da capacidade de uma aplicação já saturada transformaria um limite de 100 Mbit/s em cerca de 94,55 Mbit/s.
 
-O pico observado, equivalente a 6,17 processadores lógicos, evidencia a importância da margem para variações. Sua duração e o escalonamento determinam se há aumento de latência, absorção pelos buffers ou perda de dados. Não é correto converter esse pico diretamente em uma queda sustentada de 17,15\% na taxa de dados. A validação necessária é executar o rádio na taxa pretendida e registrar perdas, filas, latência e utilização por núcleo junto com o agente.
+O pico observado, equivalente a 6,17 processadores lógicos, evidencia a importância da margem para variações. Sua duração e o escalonamento determinam se há aumento de latência, absorção pelos buffers ou perda de dados.
 
 \section{Conclusão}
-A comparação mantém uma tendência desfavorável em várias tarefas PyTorch e de arquivos, com exceções favoráveis em TensorFlow. O dado mais direto sobre o Bitdefender é sua demanda concorrente: média de 1,96 processador lógico e pico amostrado de 6,17 durante a campanha. Para IA, o efeito prático depende de quantas vezes a etapa se repete. Para rádio, depende de a execução terminar antes da chegada do próximo bloco. As diferenças entre os PCs impedem separar uma penalidade causal exclusiva da proteção.
-
-Os resultados comparam medições de 3 de novembro de 2026 no ambiente sem Bitdefender e de 5 de novembro no ambiente com Bitdefender. Foram consideradas somente execuções concluídas sem avisos ou indícios registrados de interferência.
+A comparação mantém uma tendência desfavorável em várias tarefas PyTorch e de arquivos. O dado mais direto sobre o Bitdefender é sua demanda concorrente: média de 1,96 processador lógico e pico amostrado de 6,17 durante a campanha. Para \ac{ia}, o efeito prático depende de quantas vezes a etapa se repete. Para rádio, depende de a execução terminar antes da chegada do próximo bloco.
 
 \end{document}
