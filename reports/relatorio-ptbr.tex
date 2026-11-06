@@ -22,7 +22,7 @@
 \begin{document}
 \maketitle
 \section{Objetivo e limites da comparação}
-Este relatório compara o desempenho de aplicações de \ac{ia} e operações de arquivos em dois computadores, um sem o Bitdefender (baseline) e outro com o produto em execução (Protected). As permissões disponíveis impediram testar o mesmo computador com a proteção ativada e desativada. Por isso, os resultados descrevem a diferença entre os ambientes e não isolam a contribuição exclusiva do Bitdefender. Os processadores, as unidades de armazenamento e os sistemas de arquivos também diferem, conforme a Tabela~\ref{tab:ambientes}. Mesmo com essa limitação, observa-se uma tendência de maior duração em várias cargas e operações de arquivos, acompanhada de consumo mensurável de \ac{cpu} pelos componentes do Bitdefender.
+Este relatório compara o desempenho de aplicações de \ac{ia} e operações de arquivos em dois computadores, um sem o Bitdefender (baseline) e outro com o software de segurança Bitdefender em execução (Protected). As permissões disponíveis impediram testar o mesmo computador com a proteção ativada e desativada. Por isso, os resultados descrevem a diferença entre os ambientes e não isolam a contribuição exclusiva do Bitdefender. Os processadores, as unidades de armazenamento e os sistemas de arquivos também diferem, conforme a Tabela~\ref{tab:ambientes}. Mesmo com essa limitação, observa-se uma tendência de maior duração em várias cargas e operações de arquivos, acompanhada de consumo mensurável de \ac{cpu} pelos componentes do Bitdefender.
 
 \begin{table}[H]\centering\small
 \caption{Características dos computadores comparados.}\label{tab:ambientes}
@@ -38,9 +38,13 @@ Sistema operacional & Linux, Ubuntu & Linux, Ubuntu \\
 As frequências base e turbo são especificações da Intel para o \href{https://www.intel.com/content/www/us/en/products/sku/215270/intel-xeon-silver-4316-processor-30m-cache-2-30-ghz/specifications.html}{Xeon Silver 4316} e o \href{https://www.intel.com/content/www/us/en/products/sku/193388/intel-xeon-gold-5220-processor-24-75m-cache-2-20-ghz/specifications.html}{Xeon Gold 5220}.
 
 \section{Bitdefender: recursos ocupados durante o trabalho}
+O ensaio executou testes de inicialização das bibliotecas, treinamento de redes neurais em PyTorch, avaliação por regressão logística e operações de leitura e gravação de arquivos, incluindo checkpoints. Um checkpoint é um arquivo que salva o estado do modelo e do otimizador, permitindo retomar o treinamento a partir daquele ponto. Checkpoints são muito usados durante o treinamento para preservar o progresso, com gravações frequentes e leituras quando é necessário recuperar um estado salvo. Seu uso gera, portanto, vários acessos a arquivos ao longo do processo. Os treinamentos incluíram redes convolucionais e modelos de linguagem, com dados gerados e conjuntos de dados de imagens e texto. Houve cargas em \ac{cpu} e em \ac{gpu}. O consumo do Bitdefender foi acompanhado durante os intervalos monitorados de preparação e execução dessas cargas. Os resultados de duração selecionados na Tabela~\ref{tab:tempos} correspondem às tarefas em \ac{cpu} e às operações de arquivos.
+
 A \ac{cpu} executa as instruções dos programas. Nas medições apresentadas, 100\% de \ac{cpu} corresponde a um processador lógico ocupado. Portanto, 200\% significa o equivalente a dois processadores lógicos.
 
-Durante os intervalos monitorados da nova campanha, os processos visíveis do Bitdefender consumiram em média 196,30\% de \ac{cpu}, o equivalente a 1,96 processador lógico. O pico de um intervalo foi 617,46\%, equivalente a 6,17 processadores lógicos. Esses valores descrevem atividade real do agente durante o ensaio, inclusive preparação e cargas envolvendo a \ac{gpu}.
+Durante os intervalos monitorados do ensaio descrito acima, os processos visíveis do Bitdefender consumiram em média 196,30\% de \ac{cpu}, o equivalente a 1,96 processador lógico. O pico de um intervalo foi 617,46\%, equivalente a 6,17 processadores lógicos. Esses valores descrevem atividade real do agente durante o ensaio, inclusive preparação e cargas envolvendo a \ac{gpu}.
+
+A Tabela~\ref{tab:agente} detalha o consumo de processamento e a memória residente média de cada componente monitorado do Bitdefender. O pico de cada componente corresponde ao seu maior valor em um intervalo e pode ocorrer em momentos diferentes.
 
 \begin{table}[H]\centering\small
 \caption{Componentes do BitDefender. \ac{cpu} em porcentagem de um processador lógico. Memória residente média em MiB.}\label{tab:agente}
@@ -75,7 +79,7 @@ Avaliação de 2000 exemplos / regressão logística & 0,0015 $\pm$ 0,0002 & 0,0
 
 Nas operações de pequenos arquivos, o aumento foi de 40,67 ms para 481,62 ms por conjunto de 1024 gravações e 1024 leituras. São aproximadamente 441 ms adicionais por conjunto, não por arquivo. As 10000 leituras aleatórias passaram de 19,10 ms para 309,14 ms. Os controles usam arquivos recém-criados e podem ser atendidos parcialmente pelo cache, portanto não medem a velocidade física máxima das unidades.
 
-Checkpoint de modelo é um arquivo que preserva o estado do modelo e do otimizador para restaurar o treinamento. Sua gravação persistente em PyTorch aumentou 37,25\%. Já a variante sem sincronização persistente ficou 25,81\% mais rápida em Protected. O controle de 64 MiB da tabela grava, sincroniza e lê um arquivo comum. Ele não serializa um modelo e não deve ser usado como estimativa universal do custo de checkpoints. Ou seja, um caso real pode ser mais pesado ainda. Além disso, esse tipo de operação é repetida centenas de vezes durante um treinamento real.
+O tempo de gravação persistente de checkpoints em PyTorch aumentou 37,25\%. Já a variante sem sincronização persistente ficou 25,81\% mais rápida em Protected. O controle de 64 MiB da tabela grava, sincroniza e lê um arquivo comum. Ele não serializa um modelo e não deve ser usado como estimativa universal do custo de checkpoints. Ou seja, um caso real pode ser mais pesado ainda. Além disso, esse tipo de operação é repetida centenas de vezes durante um treinamento real.
 
 Cada valor reúne três repetições concluídas da mesma sessão. O desvio-padrão descreve a dispersão dessas repetições. As cargas de treinamento selecionadas usam 200 passos medidos e cinco de aquecimento. Foram comparadas tarefas com os mesmos parâmetros, conteúdo dos conjuntos de dados e versões das bibliotecas.
 
@@ -83,9 +87,27 @@ Cada valor reúne três repetições concluídas da mesma sessão. O desvio-padr
 \subsection{Treinamento: um pequeno custo pode se repetir milhões de vezes}
 Treinar um modelo significa ajustar seus parâmetros usando sucessivos lotes de exemplos. Uma época corresponde a percorrer o conjunto de treinamento uma vez. Portanto, uma diferença pequena por lote ou por leitura pode se repetir muitas vezes. Milissegundos e meses se relacionam pela quantidade de repetições e pela parcela do tempo realmente afetada.
 
-Os exemplos desta seção e da seção de rádio vêm do histórico real de testes e projetos do autor. Nesse histórico, houve treinamentos que chegaram a durar três meses. Um dos casos de treinamento envolve 14 milhões de amostras, organizadas em lotes de 32 exemplos. Cada época exige 437500 lotes. Um atraso adicional de 1 ms por lote representa 437,5 s, ou 7,29 minutos por época. Em 100 épocas, esse acréscimo soma 12,15 horas adicionais. O caso real mostra a escala de repetição das operações. O cálculo de 1 ms por lote quantifica o custo acumulado, sem atribuir esse atraso ao Bitdefender nos treinamentos anteriores.
+Os exemplos desta seção e da seção de rádio têm como referência testes e projetos reais desenvolvidos no CRR. As durações de treinamento utilizadas como referência não são fictícias: treinamentos que levam de 7 dias a 3 meses são comuns nesses projetos. Essa faixa corresponde a trabalhos efetivamente realizados, incluindo simulações que chegaram a durar três meses. Portanto, a escala de dias e meses apresentada aqui faz parte da rotina desses projetos. Os acréscimos de tempo calculados a seguir são estimativas para ilustrar o efeito de uma lentidão sobre essas durações reais. Um dos casos de treinamento envolve 14 milhões de amostras, organizadas em lotes de 32 exemplos. Cada época exige 437500 lotes. Um atraso adicional de 1 ms por lote representa 437,5 s, ou 7,29 minutos por época. Em 100 épocas, esse acréscimo soma 12,15 horas adicionais. O caso real mostra a escala de repetição das operações. O cálculo de 1 ms por lote quantifica o custo acumulado, sem atribuir esse atraso ao Bitdefender nos treinamentos anteriores.
 
-Para quantificar o impacto em treinamentos que duram meses, o cálculo a seguir usa 30 dias como referência. Se uma etapa que ocupa todo esse tempo passasse a custar 86,89\% mais, como no caso PyTorch em \ac{cpu} da tabela, a projeção seria 56,07 dias. Se apenas 20\% do tempo original pertencesse à etapa afetada, a projeção cairia para 35,21 dias. Essas projeções quantificam o efeito acumulado de uma etapa mais lenta.
+A Tabela~\ref{tab:projecoes} apresenta exemplos de treinamentos com duração de poucas horas até três meses, representados por 90 dias. Em todos os exemplos, aplica-se ao tempo total um aumento de 86,89\%, igual ao observado no teste da rede convolucional em PyTorch na \ac{cpu}. Assim, um treinamento de 2 horas passaria a durar aproximadamente 3,74 horas, enquanto um de 90 dias chegaria a 168,20 dias. Essas projeções são estimativas calculadas para ilustrar o acúmulo de tempo.
+
+\begin{table}[H]\centering\small
+\caption{Exemplos calculados de duração do treinamento com aumento de 86,89\% aplicado ao tempo total. Valores arredondados para duas casas decimais.}\label{tab:projecoes}
+\begin{tabular}{L{4cm}L{4cm}L{4cm}}\toprule
+Duração original & Duração estimada & Tempo adicional \\ \midrule
+2 horas & 3,74 horas & 1,74 horas \\
+6 horas & 11,21 horas & 5,21 horas \\
+12 horas & 22,43 horas & 10,43 horas \\
+1 dia & 1,87 dias & 0,87 dias \\
+3 dias & 5,61 dias & 2,61 dias \\
+7 dias & 13,08 dias & 6,08 dias \\
+15 dias & 28,03 dias & 13,03 dias \\
+30 dias & 56,07 dias & 26,07 dias \\
+60 dias & 112,13 dias & 52,13 dias \\
+90 dias & 168,20 dias & 78,20 dias \\
+\bottomrule\end{tabular}\end{table}
+
+Vale reforçar que os treinamentos de 7 dias a 3 meses usados como referência na Tabela~\ref{tab:projecoes} correspondem a durações reais e comuns em projetos do CRR. Assim, os exemplos partem de uma escala de trabalho vivenciada nesses projetos. O que a tabela estima é quanto tempo seria acrescentado se o aumento de 86,89\% se aplicasse a todo o treinamento, e não a existência de treinamentos com essas durações.
 
 \subsection{Inferência: medir o modelo também exige medir o ambiente}
 Inferência é usar um modelo já treinado para produzir uma resposta. Neste ensaio, a regressão logística apresentou 1,49 ms em baseline e 5,37 ms em Protected para avaliar um conjunto de 2000 exemplos. A rotina inclui a predição e o cálculo da acurácia. Esses tempos não são a latência de uma única inferência. A dispersão de 2,39 ms em Protected também mostra por que poucas medidas isoladas podem representar mal uma comparação.
@@ -95,9 +117,11 @@ Para um artigo, uma tarefa científica idêntica pode parecer mais lenta quando 
 \section{Rádio: capacidade média e cumprimento de prazos}
 Em \ac{sdr}, parte do processamento do sinal é executada pelo computador. As amostras chegam continuamente e precisam ser tratadas em tempo hábil. Aumentar a taxa de amostras ou a complexidade do processamento aproxima a aplicação do limite de \ac{cpu}. Nesse regime, o trabalho concorrente pode reduzir a taxa sustentável ou provocar acúmulo de dados e perdas, dependendo da margem dos buffers.
 
+Os valores a seguir são estimativas calculadas para exemplificar o problema. Ainda não foram realizadas medições práticas do impacto do Bitdefender nas aplicações de rádio descritas.
+
 Em um rádio operando a 8 milhões de amostras por segundo, pequenas pausas já correspondem a grandes quantidades de dados. Nessa condição de operação, 1 ms corresponde a 8000 amostras recebidas e 500 ms correspondem a 4 milhões de amostras. Se uma pausa impedisse toda a cadeia de processar dados durante esse intervalo, seria necessário armazenar esse volume e depois recuperar o atraso. Nessa conversão, os números traduzem a duração de uma pausa na quantidade de amostras que precisaria aguardar processamento.
 
-Outro caso do histórico de projetos é um estágio que recebe um bloco novo a cada 1 ms e leva 0,95 ms para processá-lo. Sua folga é de apenas 0,05 ms. Se o custo por bloco aumentar 10\%, o processamento passa a 1,045 ms, superior ao intervalo de chegada. A fila cresce enquanto essa condição persistir. Assim, uma diferença de apenas 0,095 ms por bloco pode comprometer a operação contínua mesmo que pareça desprezível em uma tarefa isolada.
+Outro exemplo calculado, baseado no histórico de projetos, considera um estágio que recebe um bloco novo a cada 1 ms e leva 0,95 ms para processá-lo. Sua folga é de apenas 0,05 ms. Se o custo por bloco aumentar 10\%, o processamento passa a 1,045 ms, superior ao intervalo de chegada. A fila cresce enquanto essa condição persistir. Assim, uma diferença de apenas 0,095 ms por bloco pode comprometer a operação contínua mesmo que pareça desprezível em uma tarefa isolada.
 
 Se a capacidade de processamento limita o enlace, reduzir o trabalho disponível por segundo pode exigir uma taxa de dados menor para manter o fluxo estável. Para calcular o efeito sobre a taxa de dados, considerando capacidade perfeitamente divisível, retirar 5,45\% da capacidade de uma aplicação já saturada transformaria um limite de 100 Mbit/s em cerca de 94,55 Mbit/s.
 
